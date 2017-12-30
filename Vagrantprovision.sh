@@ -235,6 +235,7 @@ if [ ${SETUP_APACHE} = 1 ]; then
 			echo Setup PHP Composer
 
 			apt-get install -y composer
+            composer config --global repo.packagist composer https://packagist.org
 		fi
 
 		if [ ${SETUP_XDEBUG} = 1 ]; then

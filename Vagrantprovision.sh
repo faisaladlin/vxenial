@@ -30,6 +30,7 @@ SETUP_COMPOSER=0
 SETUP_XDEBUG=0
 
 SETUP_LARAVEL=0
+SETUP_LUMEN=0
 
 SETUP_BASH=1
 
@@ -45,17 +46,23 @@ if [ ${SETUP_BUILD} = 1 ]; then
 	fi	
 fi
 
-if [ ${SETUP_LARAVEL} = 1 ]; then
+if [ ${SETUP_LARAVEL} = 1 ] && [ ${SETUP_LUMEN} = 1 ]; then
+
+	echo Lumen disabled \(May not co-exist with Laravel\) \| SETUP_LUMEN=0
+	SETUP_LUMEN=0
+fi
+
+if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 
 	if [ ${SETUP_COMPOSER} != 1 ]; then
 
-		echo SETUP_LARAVEL Prerequisite \| SETUP_COMPOSER=1
+		echo SETUP_LARAVEL / SETUP_LUMEN Prerequisite \| SETUP_COMPOSER=1
 		SETUP_COMPOSER=1
 	fi
 
 	if [ ${SET_WWW_ROOT} != '/vagrant/public' ]; then
 
-		echo SETUP_LARAVEL Prerequisite \| SET_WWW_ROOT=/vagrant/public
+		echo SETUP_LARAVEL / SETUP_LUMEN Prerequisite \| SET_WWW_ROOT=/vagrant/public
 		SET_WWW_ROOT=/vagrant/public
 	fi	
 fi
@@ -235,7 +242,7 @@ if [ ${SETUP_APACHE} = 1 ]; then
 			echo Setup PHP Composer
 
 			apt-get install -y composer
-            composer config --global repo.packagist composer https://packagist.org
+			composer config --global repo.packagist composer https://packagist.org
 		fi
 
 		if [ ${SETUP_XDEBUG} = 1 ]; then
@@ -254,10 +261,10 @@ if [ ${SETUP_APACHE} = 1 ]; then
 			grep -q -F 'xdebug.remote_port' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
 		fi
 
-		if [ ${SETUP_LARAVEL} = 1 ]; then
+		if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 
 			echo $'\n------------------------------------------------------------------'
-			echo Setup Laravel project, dependencies \& configurations
+			echo Setup Laravel / Lumen project, dependencies \& configurations
 
 			LARAVEL_INSTALLED=0
 
@@ -266,11 +273,11 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 				LARAVEL_INSTALLED=1
 
-				echo Laravel detected. Begin configuring...
+				echo Laravel / Lumen detected. Begin configuring...
 
 			else
 
-				echo Laravel not detected. Begin installing...
+				echo Laravel / Lumen not detected. Begin installing...
 
 				VAGRANT_EMPTY=1 # vagrant folder considered empty by default
 
@@ -288,21 +295,29 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 				if [ ${VAGRANT_EMPTY} = 0 ]; then
 
-					echo Laravel installation ABORTED. /vagrant directory NOT EMPTY
+					echo Laravel / Lumen installation ABORTED. /vagrant directory NOT EMPTY
 					echo \* Should only contain Vagrantfile, Vagrantprovision.sh \& README.md
 
 					SETUP_LARAVEL=0
+					SETUP_LUMEN=0
 
 				else
 
-					composer create-project --prefer-dist laravel/laravel project
+					if [ ${SETUP_LARAVEL} = 1 ]; then
+						composer create-project --prefer-dist laravel/laravel project
+					elif [ ${SETUP_LUMEN} = 1 ]; then
+						composer create-project --prefer-dist laravel/lumen project
+					fi
 
 					rm project/readme.md
 					
 					mv -v project/* /vagrant
-					mv -v project/.env.example /vagrant
-					mv -v project/.gitattributes /vagrant
-					mv -v project/.gitignore /vagrant
+					[[ -f project/.env ]] && mv -v project/.env /vagrant
+					[[ -f project/.env.example ]] && mv -v project/.env.example /vagrant
+					[[ -f project/.gitattributes ]] && mv -v project/.gitattributes /vagrant
+
+					# overwrite .gitignore only if it is missing from /vagrant, otherwise preserve it
+					[[ -f project/.gitignore && ! -f /vagrant/.gitignore ]] && mv -v project/.gitignore /vagrant
 
 					rm -rf project
 
@@ -344,13 +359,25 @@ if [ ${SETUP_APACHE} = 1 ]; then
 					sed -i -e 's/DB_DATABASE=homestead/DB_DATABASE='${SET_DB_NAME}'/g' /vagrant/.env
 					sed -i -e 's/DB_USERNAME=homestead/DB_USERNAME=root/g' /vagrant/.env
 					sed -i -e 's/DB_PASSWORD=secret/DB_PASSWORD='${SET_DB_PASSWORD}'/g' /vagrant/.env
+
+					# ... and timezone for Lumen
+					[[ ${SETUP_LUMEN} = 1 ]] && sed -i -e 's@APP_TIMEZONE=UTC@APP_TIMEZONE='${SET_TIMEZONE}'@g' /vagrant/.env
 				fi
 
 				# if APP_KEY not set in .env file
 				if ! grep -q 'APP_KEY=base64' /vagrant/.env; then
 
-					# generate app key
-					php /vagrant/artisan key:generate	
+					if [ ${SETUP_LARAVEL} = 1 ]; then
+
+						# generate app key
+						php /vagrant/artisan key:generate
+						
+					elif [ ${SETUP_LUMEN} = 1 ]; then
+
+						# generate app key (lumen)
+						/usr/bin/php -r "file_put_contents('/vagrant/.env', preg_replace('/APP_KEY=\n/', 'APP_KEY=base64:' . base64_encode(random_bytes(32)) . chr(10), file_get_contents('/vagrant/.env')));" > /dev/null
+						
+					fi
 				fi
 			fi
 
@@ -377,10 +404,10 @@ if [ ${SETUP_BASH} = 1 ]; then
 		echo $'\n# composer as sudo composer\nalias composer="sudo composer"' | tee -a /home/ubuntu/.profile > /dev/null	
 	fi
 
-	if [ ${SETUP_LARAVEL} = 1 ]; then
+	if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 
 		echo Adds artisan alias
-		echo $'\n# laravel artisan command alias\nalias artisan="sudo php artisan"' | tee -a /home/ubuntu/.profile > /dev/null
+		echo $'\n# artisan command alias\nalias artisan="sudo php artisan"' | tee -a /home/ubuntu/.profile > /dev/null
 	fi
 
 	echo Change into /vagrant directory upon login

@@ -61,7 +61,11 @@ Available configurations (provisioning variables):
 *Flag 1 = Installs & setup XDebug*
 
 **SETUP_LARAVEL**=0  
-*Flag 1 = Installs / setup Laravel (if dropped in laravel project root)*
+*Flag 1 = Installs / setup Laravel*
+
+**SETUP_LUMEN**=0  
+*Flag 1 = Installs / setup Lumen*  
+*Disabled if SETUP_LARAVEL=1*
 
 **SETUP_BASH**=1  
 *Flag 1 = Adds a few handy aliases in ~/.profile*

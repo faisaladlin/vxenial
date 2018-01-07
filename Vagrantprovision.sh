@@ -7,7 +7,7 @@ SET_TIMEZONE=Asia/Kuala_Lumpur
 
 SET_WWW_USER=ubuntu
 SET_WWW_GROUP=ubuntu
-SET_WWW_ROOT=/vagrant
+SET_WWW_ROOT=/vagrant/public
 
 SET_DB_NAME=vagrant
 SET_DB_PASSWORD=vagrant
@@ -16,8 +16,13 @@ SET_DB_REMOTE_IP=192.168.33.1
 SET_XDEBUG_REMOTE_IP=10.0.2.2
 SET_XDEBUG_REMOTE_PORT=9000
 
+SET_NODE_PORT=3000
+
 SETUP_NODE8=0
 SETUP_BUILD=0
+SETUP_PM2=0
+SETUP_NGINX=0
+SETUP_NODE_PROXY=0
 
 SETUP_MYSQL=0
 SETUP_MONGODB=0
@@ -43,7 +48,16 @@ if [ ${SETUP_BUILD} = 1 ]; then
 
 		echo SETUP_BUILD Prerequisite \| SETUP_NODE8=1
 		SETUP_NODE8=1
-	fi	
+	fi
+fi
+
+if [ ${SETUP_PM2} = 1 ]; then
+
+	if [ ${SETUP_NODE8} != 1 ]; then
+
+		echo SETUP_PM2 Prerequisite \| SETUP_NODE8=1
+		SETUP_NODE8=1
+	fi
 fi
 
 if [ ${SETUP_LARAVEL} = 1 ] && [ ${SETUP_LUMEN} = 1 ]; then
@@ -91,7 +105,28 @@ if [ ${SETUP_PHP7FPM} = 1 ]; then
 
 		echo SETUP_PHP7FPM Prerequisite \| SETUP_APACHE=1
 		SETUP_APACHE=1
-	fi	
+	fi
+fi
+
+if [ ${SETUP_NGINX} = 1 ] && [ ${SETUP_APACHE} = 1 ]; then
+
+	echo NGINX disabled \(May not co-exist with Apache HTTPd\) \| SETUP_NGINX=0
+	SETUP_NGINX=0
+fi
+
+if [ ${SETUP_NODE_PROXY} = 1 ]; then
+
+	if [ ${SETUP_NODE8} != 1 ]; then
+
+		echo Skipped Node reverse proxy. Node not installed \| SETUP_NODE_PROXY=0
+		SETUP_NODE_PROXY=0
+	fi
+
+	if [ ${SETUP_NGINX} != 1 ] && [ ${SETUP_NODE_PROXY} = 1 ]; then
+
+		echo Skipped Node reverse proxy. NGINX not installed \| SETUP_NODE_PROXY=0
+		SETUP_NODE_PROXY=0
+	fi
 fi
 
 echo $'\n------------------------------------------------------------------'
@@ -143,6 +178,35 @@ if [ ${SETUP_BUILD} = 1 ] && [ ${SETUP_NODE8} = 1 ]; then
 	echo Setup build-essential packages
 
 	apt-get install -y build-essential
+fi
+
+if [ ${SETUP_PM2} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Setup PM2 node service manager
+
+	npm install -g pm2
+	pm2 startup
+fi
+
+if [ ${SETUP_NGINX} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Setup NGINX \| As ${SET_WWW_USER}
+
+	apt-get -y install nginx
+
+	sed -i -e 's|user www-data|user '${SET_WWW_USER}'|g' /etc/nginx/nginx.conf
+	sed -i -e 's|root /var/www/html|root '${SET_WWW_ROOT}'|g' /etc/nginx/sites-available/default
+fi
+
+if [ ${SETUP_NODE_PROXY} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Setup Node NGINX reverse proxy
+
+	sed -i -e 's|^server {|\nupstream backend {\n\tserver localhost:'${SET_NODE_PORT}';\n}\n\nserver {|' /etc/nginx/sites-available/default
+	sed -i -e 's|^\t\ttry_files $uri $uri/ =404;|\t\ttry_files $uri @backend;\n\t}\n\n\tlocation @backend {\n\n\t\tproxy_pass http://backend;\n\n\t\tproxy_set_header X-Real-IP $remote_addr;\n\t\tproxy_set_header Host $host;\n\t\tproxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade $http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\n\t\tproxy_cache_bypass $http_upgrade;|' /etc/nginx/sites-available/default
 fi
 
 if [ ${SETUP_MYSQL} = 1 ]; then
@@ -385,6 +449,12 @@ if [ ${SETUP_APACHE} = 1 ]; then
 	fi
 fi
 
+# if www root directory is missing, create it
+if [ ! -d ${SET_WWW_ROOT} ]; then
+
+	mkdir ${SET_WWW_ROOT}
+fi
+
 if [ ${SETUP_BASH} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'
@@ -421,6 +491,9 @@ echo Restarting Servers
 [[ ${SETUP_MONGODB} = 1 ]] && service mongod restart
 [[ ${SETUP_REDIS} = 1 ]] && service redis-server restart
 [[ ${SETUP_BEANSTALKD} = 1 ]] && service beanstalkd restart
+
+[[ ${SETUP_NGINX} = 1 ]] && service nginx restart
+[[ ${SETUP_PM2} = 1 ]] && pm2 startup
 
 [[ ${SETUP_APACHE} = 1 ]] && service apache2 restart
 [[ ${SETUP_PHP7FPM} = 1 ]] && service php7.1-fpm restart

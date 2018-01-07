@@ -30,11 +30,22 @@ Available configurations (provisioning variables):
 **SET_XDEBUG_REMOTE_IP**=10.0.2.2  
 **SET_XDEBUG_REMOTE_PORT**=9000
 
+**SET_NODE_PORT**=3000
+
 **SETUP_NODE8**=0  
 *Flag 1 = Installs Node 8*
 
 **SETUP_BUILD**=0  
-*Flag 1 = Installs build-essential (often required for node projects)*
+*Flag 1 = Installs build-essential*
+
+**SETUP_PM2**=0  
+*Flag 1 = Installs PM2 node service manager*
+
+**SETUP_NGINX**=0  
+*Flag 1 = Installs NGINX web server*
+
+**SETUP_NODE_PROXY**=0  
+*Flag 1 = Configure NGINX node proxy pass*
 
 **SETUP_MYSQL**=0  
 *Flag 1 = Installs MySQL (with default db name & password set)*
@@ -92,6 +103,12 @@ Available configurations (provisioning variables):
 http://192.168.33.10
 7. Optional: Connect to the database from host  
 `server : 192.168.33.10 | database : vagrant | user : root | password : vagrant`
+8. Optional (node project): create project, install dependencies, run as service  
+`(ssh into vagrant)`  
+`npm init`  
+`npm install express (if required)`  
+`(create app.js)`  
+`pm2 start app.js`
 
 ### Contributor(s) ###
 

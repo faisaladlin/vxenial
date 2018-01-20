@@ -373,8 +373,9 @@ if [ ${SETUP_APACHE} = 1 ]; then
 						composer create-project --prefer-dist laravel/lumen project
 					fi
 
-					rm project/readme.md
-					
+					# if /vagrant/readme.md exists, don't overwrite it with laravel's
+					[[ -f /vagrant/readme.md ]] && rm project/readme.md
+
 					mv -v project/* /vagrant
 					[[ -f project/.env ]] && mv -v project/.env /vagrant
 					[[ -f project/.env.example ]] && mv -v project/.env.example /vagrant

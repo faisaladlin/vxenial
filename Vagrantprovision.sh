@@ -163,6 +163,17 @@ echo Setup common utilities \(curl, git, zip, software-properties-common\)
 
 apt-get install -y curl git zip software-properties-common
 
+if [ ${SET_WWW_ROOT} = '/vagrant/public' ]; then
+
+	if [ ! -d /vagrant/public ]; then
+
+		echo $'\n------------------------------------------------------------------'
+		echo Create /vagrant/public folder \(was specified as web root \& missing\)
+
+		mkdir /vagrant/public
+	fi
+fi	
+
 if [ ${SETUP_NODE8} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'

@@ -5,8 +5,8 @@ export DEBIAN_FRONTEND=noninteractive
 SET_LOCALE=en_US.UTF-8
 SET_TIMEZONE=Asia/Kuala_Lumpur
 
-SET_WWW_USER=ubuntu
-SET_WWW_GROUP=ubuntu
+SET_WWW_USER=vagrant
+SET_WWW_GROUP=vagrant
 SET_WWW_ROOT=/vagrant/public
 
 SET_DB_NAME=vagrant
@@ -465,24 +465,24 @@ if [ ${SETUP_BASH} = 1 ]; then
 
 		echo Adds xdebug toggler \(xon / xoff\)
 
-		echo $'\n# xdebug disabler command alias\nalias xoff="sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug DISABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/ubuntu/.profile > /dev/null
-		echo $'\n# xdebug enabler command alias\nalias xon="sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug ENABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/ubuntu/.profile > /dev/null
+		echo $'\n# xdebug disabler command alias\nalias xoff="sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug DISABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
+		echo $'\n# xdebug enabler command alias\nalias xon="sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug ENABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
 	fi
 
 	if [ ${SETUP_COMPOSER} = 1 ]; then
 
 		echo Adds composer alias
-		echo $'\n# composer as sudo composer\nalias composer="sudo composer"' | tee -a /home/ubuntu/.profile > /dev/null	
+		echo $'\n# composer as sudo composer\nalias composer="sudo composer"' | tee -a /home/vagrant/.profile > /dev/null	
 	fi
 
 	if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 
 		echo Adds artisan alias
-		echo $'\n# artisan command alias\nalias artisan="sudo php artisan"' | tee -a /home/ubuntu/.profile > /dev/null
+		echo $'\n# artisan command alias\nalias artisan="sudo php artisan"' | tee -a /home/vagrant/.profile > /dev/null
 	fi
 
 	echo Change into /vagrant directory upon login
-	echo $'\n# change into /vagrant directory upon login\ncd /vagrant' | tee -a /home/ubuntu/.profile > /dev/null
+	echo $'\n# change into /vagrant directory upon login\ncd /vagrant' | tee -a /home/vagrant/.profile > /dev/null
 fi
 
 echo $'\n------------------------------------------------------------------'

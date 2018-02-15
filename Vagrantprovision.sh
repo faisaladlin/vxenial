@@ -279,23 +279,26 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 		if [ ${SETUP_MYSQL} = 1 ] && [ ${SETUP_REDIS} = 1 ]; then
 
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-mbstring php7.1-xml php7.1-mysql php-redis
+			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml php7.1-mysql php-redis
 
 		elif [ ${SETUP_MYSQL} = 1 ]; then
 
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-mbstring php7.1-xml php7.1-mysql
+			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml php7.1-mysql
 
 		elif [ ${SETUP_REDIS} = 1 ]; then
 
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-mbstring php7.1-xml php-redis
+			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml php-redis
 
 		else
 
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-mbstring php7.1-xml
+			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
 		fi
 
-		sed -i -e 's/user = www-data/user = '${SET_WWW_USER}'/g' /etc/php/7.1/fpm/pool.d/www.conf
-		sed -i -e 's/group = www-data/group = '${SET_WWW_GROUP}'/g' /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+
+		sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
 
 		a2enmod proxy_fcgi setenvif
 		a2enconf php7.1-fpm

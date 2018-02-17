@@ -37,6 +37,9 @@ SETUP_XDEBUG=0
 SETUP_LARAVEL=0
 SETUP_LUMEN=0
 
+SETUP_PACKAGES_COMPOSER=0
+SETUP_PACKAGES_NPM=0
+
 SETUP_BASH=1
 
 echo $'\n------------------------------------------------------------------'
@@ -235,6 +238,9 @@ if [ ${SETUP_MONGODB} = 1 ]; then
 	apt-get install -y mongodb-org=3.6.0 mongodb-org-server=3.6.0 mongodb-org-shell=3.6.0 mongodb-org-mongos=3.6.0 mongodb-org-tools=3.6.0
 
 	sed -i -e 's/bindIp: 127.0.0.1/bindIp: 0.0.0.0/g' /etc/mongod.conf
+
+	# enable & start mongodb on boot
+	systemctl enable mongod
 fi
 
 if [ ${SETUP_REDIS} = 1 ]; then
@@ -277,22 +283,11 @@ if [ ${SETUP_APACHE} = 1 ]; then
 		echo $'\n------------------------------------------------------------------'
 		echo Setup PHP CLI \& FastCGI Process Manager \| As ${SET_WWW_USER}:${SET_WWW_GROUP}
 
-		if [ ${SETUP_MYSQL} = 1 ] && [ ${SETUP_REDIS} = 1 ]; then
+		apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
 
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml php7.1-mysql php-redis
-
-		elif [ ${SETUP_MYSQL} = 1 ]; then
-
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml php7.1-mysql
-
-		elif [ ${SETUP_REDIS} = 1 ]; then
-
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml php-redis
-
-		else
-
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
-		fi
+		[[ ${SETUP_MYSQL} = 1 ]] && apt-get install -y php7.1-mysql
+		[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
+		[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
 
 		sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
 		sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
@@ -406,6 +401,9 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 						# pull all dependencies
 						composer install
+
+						# unset package composer flag
+						SETUP_PACKAGES_COMPOSER=0
 					fi
 				fi
 
@@ -449,6 +447,46 @@ if [ ${SETUP_APACHE} = 1 ]; then
 				fi
 			fi
 
+		fi
+
+		if [ ${SETUP_PACKAGES_COMPOSER} = 1 ]; then
+
+			# if composer.json file exists
+			if [ -f /vagrant/composer.json ]; then
+
+				# ... but vendor directory is missing
+				if [ ! -d /vagrant/vendor ]; then
+
+					echo $'\n------------------------------------------------------------------'
+					echo Setup Composer Packages
+
+					# change current directory
+					cd /vagrant
+
+					# pull all dependencies
+					composer install
+				fi
+			fi
+		fi
+	fi
+fi
+
+if [ ${SETUP_NODE8} = 1 ] && [ ${SETUP_PACKAGES_NPM} = 1 ]; then
+
+	# if package.json file exists
+	if [ -f /vagrant/package.json ]; then
+
+		# ... but node_modules directory is missing
+		if [ ! -d /vagrant/node_modules ]; then
+
+			echo $'\n------------------------------------------------------------------'
+			echo Setup NPM Packages
+
+			# change current directory
+			cd /vagrant
+
+			# pull all dependencies
+			npm install -y
 		fi
 	fi
 fi

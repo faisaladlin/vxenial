@@ -48,7 +48,10 @@ Available configurations (provisioning variables):
 *Flag 1 = Configure NGINX node proxy pass*
 
 **SETUP_MYSQL**=0  
-*Flag 1 = Installs MySQL (with default db name & password set)*
+*Flag 1 = Installs MySQL database (unsets with MariaDB)*
+
+**SETUP_MARIADB**=0  
+*Flag 1 = Installs MariaDB database*
 
 **SETUP_MONGODB**=0  
 *Flag 1 = Installs MongoDB NoSQL database*

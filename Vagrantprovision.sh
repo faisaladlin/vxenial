@@ -25,6 +25,8 @@ SETUP_NGINX=0
 SETUP_NODE_PROXY=0
 
 SETUP_MYSQL=0
+SETUP_MARIADB=0
+
 SETUP_MONGODB=0
 SETUP_REDIS=0
 SETUP_BEANSTALKD=0
@@ -132,6 +134,12 @@ if [ ${SETUP_NODE_PROXY} = 1 ]; then
 	fi
 fi
 
+if [ ${SETUP_MYSQL} = 1 ] && [ ${SETUP_MARIADB} = 1 ]; then
+
+	# skip MySQL if installing MariaDB
+	SETUP_MYSQL=0
+fi
+
 echo $'\n------------------------------------------------------------------'
 echo Set default locales
 
@@ -142,7 +150,7 @@ echo Set default timezone
 
 timedatectl set-timezone ${SET_TIMEZONE}
 
-if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ]; then
+if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ] || [ ${SETUP_MARIADB} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'
 	echo Add external keys \& package archives
@@ -157,7 +165,12 @@ if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 
 
 		add-apt-repository -y ppa:ondrej/php
 	fi
-	
+
+	if [ ${SETUP_MARIADB} = 1 ]; then
+
+		add-apt-repository 'deb [arch=amd64,i386] http://sgp1.mirrors.digitalocean.com/mariadb/repo/10.1/ubuntu xenial main'
+	fi
+
 	apt-get update -y
 fi
 
@@ -222,12 +235,28 @@ if [ ${SETUP_MYSQL} = 1 ]; then
 
 	apt-get install -y mysql-server
 
-	mysql --defaults-extra-file=/etc/mysql/debian.cnf -Bse "CREATE USER 'root'@'$SET_DB_REMOTE_IP' IDENTIFIED BY '$SET_DB_PASSWORD';"
-	mysql --defaults-extra-file=/etc/mysql/debian.cnf -Bse "GRANT ALL PRIVILEGES ON *.* TO 'root'@'$SET_DB_REMOTE_IP' WITH GRANT OPTION;"
-	mysql --defaults-extra-file=/etc/mysql/debian.cnf -Bse "FLUSH PRIVILEGES;"
-	mysql --defaults-extra-file=/etc/mysql/debian.cnf -Bse "CREATE DATABASE $SET_DB_NAME;"
-
 	sed -i -e 's/bind-address/#bind-address/g' /etc/mysql/mysql.conf.d/mysqld.cnf
+fi
+
+if [ ${SETUP_MARIADB} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Setup MariaDB \| Password: ${SET_DB_PASSWORD} \| Database: ${SET_DB_NAME} \| Allow Remote
+
+	debconf-set-selections <<< "mariadb-server-10.1 mysql-server/root_password password $SET_DB_PASSWORD"
+	debconf-set-selections <<< "mariadb-server-10.1 mysql-server/root_password_again password $SET_DB_PASSWORD"
+
+	apt-get install -y --allow-unauthenticated mariadb-server-10.1 mariadb-client-10.1
+
+	sed -i -e 's/bind-address/#bind-address/g' /etc/mysql/my.cnf
+fi
+
+if [ ${SETUP_MYSQL} = 1 ] || [ ${SETUP_MARIADB} = 1 ]; then
+
+	mysql -u root -p$SET_DB_PASSWORD -Bse "CREATE USER 'root'@'$SET_DB_REMOTE_IP' IDENTIFIED BY '$SET_DB_PASSWORD';"
+	mysql -u root -p$SET_DB_PASSWORD -Bse "GRANT ALL PRIVILEGES ON *.* TO 'root'@'$SET_DB_REMOTE_IP' WITH GRANT OPTION;"
+	mysql -u root -p$SET_DB_PASSWORD -Bse "FLUSH PRIVILEGES;"
+	mysql -u root -p$SET_DB_PASSWORD -Bse "CREATE DATABASE $SET_DB_NAME;"
 fi
 
 if [ ${SETUP_MONGODB} = 1 ]; then
@@ -285,7 +314,7 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 		apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
 
-		[[ ${SETUP_MYSQL} = 1 ]] && apt-get install -y php7.1-mysql
+		[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && apt-get install -y php7.1-mysql
 		[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
 		[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
 
@@ -529,7 +558,7 @@ fi
 echo $'\n------------------------------------------------------------------'
 echo Restarting Servers
 
-[[ ${SETUP_MYSQL} = 1 ]] && service mysql restart
+[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && service mysql restart
 [[ ${SETUP_MONGODB} = 1 ]] && service mongod restart
 [[ ${SETUP_REDIS} = 1 ]] && service redis-server restart
 [[ ${SETUP_BEANSTALKD} = 1 ]] && service beanstalkd restart
@@ -542,3 +571,5 @@ echo Restarting Servers
 
 echo $'\n------------------------------------------------------------------'
 echo PROVISIONING DONE
+
+cat /dev/null > ~/.bash_history && history -c

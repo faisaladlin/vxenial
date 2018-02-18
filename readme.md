@@ -27,6 +27,10 @@ Available configurations (provisioning variables):
 **SET_DB_PASSWORD**=vagrant  
 **SET_DB_REMOTE_IP**=192.168.33.1
 
+**SET_PHP_DISPLAY_ERRORS**=On  
+*On = Enable PHP error output*  
+*Off = Disable PHP error output*
+
 **SET_XDEBUG_REMOTE_IP**=10.0.2.2  
 **SET_XDEBUG_REMOTE_PORT**=9000
 

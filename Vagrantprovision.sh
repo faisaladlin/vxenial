@@ -13,6 +13,8 @@ SET_DB_NAME=vagrant
 SET_DB_PASSWORD=vagrant
 SET_DB_REMOTE_IP=192.168.33.1
 
+SET_PHP_DISPLAY_ERRORS=On
+
 SET_XDEBUG_REMOTE_IP=10.0.2.2
 SET_XDEBUG_REMOTE_PORT=9000
 
@@ -323,6 +325,9 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 		sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
 		sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+
+		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/fpm/php.ini
+		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/cli/php.ini
 
 		a2enmod proxy_fcgi setenvif
 		a2enconf php7.1-fpm

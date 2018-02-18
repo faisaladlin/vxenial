@@ -70,7 +70,10 @@ Available configurations (provisioning variables):
 *Flag 1 = Installs Apache 2.4 httpd web server*
 
 **SETUP_PHP7FPM**=0  
-*Flag 1 = Installs PHP7 FastCGI & binds with Apache httpd*
+*Flag 1 = Installs PHP7.1 FastCGI & binds with Apache httpd*
+
+**SETUP_PHP5FPM**=0  
+*Flag 1 = Installs PHP5.6 FastCGI & binds with Apache httpd (unsets with PHP7)*
 
 **SETUP_COMPOSER**=0  
 *Flag 1 = Installs Composer*

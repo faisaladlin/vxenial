@@ -34,7 +34,10 @@ SETUP_REDIS=0
 SETUP_BEANSTALKD=0
 
 SETUP_APACHE=0
+
 SETUP_PHP7FPM=0
+SETUP_PHP5FPM=0
+
 SETUP_COMPOSER=0
 SETUP_XDEBUG=0
 
@@ -88,25 +91,31 @@ if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 	fi	
 fi
 
+if [ ${SETUP_PHP7FPM} = 1 ] && [ ${SETUP_PHP5FPM} = 1 ]; then
+
+	echo PHP5 dropped in favor of PHP7 \| SETUP_PHP5FPM=0
+	SETUP_PHP5FPM=0
+fi
+
 if [ ${SETUP_COMPOSER} = 1 ]; then
 
-	if [ ${SETUP_PHP7FPM} != 1 ]; then
+	if [ ${SETUP_PHP7FPM} != 1 ] && [ ${SETUP_PHP5FPM} != 1 ]; then
 
 		echo SETUP_COMPOSER Prerequisite \| SETUP_PHP7FPM=1
 		SETUP_PHP7FPM=1
-	fi	
+	fi
 fi
 
 if [ ${SETUP_XDEBUG} = 1 ]; then
 
-	if [ ${SETUP_PHP7FPM} != 1 ]; then
+	if [ ${SETUP_PHP7FPM} != 1 ] && [ ${SETUP_PHP5FPM} != 1 ]; then
 
 		echo SETUP_XDEBUG Prerequisite \| SETUP_PHP7FPM=1
 		SETUP_PHP7FPM=1
-	fi	
+	fi
 fi
 
-if [ ${SETUP_PHP7FPM} = 1 ]; then
+if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
 
 	if [ ${SETUP_APACHE} != 1 ]; then
 
@@ -138,7 +147,7 @@ fi
 
 if [ ${SETUP_MYSQL} = 1 ] && [ ${SETUP_MARIADB} = 1 ]; then
 
-	# skip MySQL if installing MariaDB
+	echo MySQL dropped in favor of MariaDB \| SETUP_MYSQL=0
 	SETUP_MYSQL=0
 fi
 
@@ -152,7 +161,7 @@ echo Set default timezone
 
 timedatectl set-timezone ${SET_TIMEZONE}
 
-if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ] || [ ${SETUP_MARIADB} = 1 ]; then
+if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ] || [ ${SETUP_MARIADB} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'
 	echo Add external keys \& package archives
@@ -163,7 +172,7 @@ if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 
 		echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.6 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.6.list
 	fi
 
-	if [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ]; then
+	if [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ]; then
 
 		add-apt-repository -y ppa:ondrej/php
 	fi
@@ -309,28 +318,53 @@ if [ ${SETUP_APACHE} = 1 ]; then
 	echo $'\n# Block access to dot-prefixed directories (i.e. .vagrant / .git)\n<DirectoryMatch ".*\/\..+">\nRequire all denied\n</DirectoryMatch>' | tee -a /etc/apache2/apache2.conf > /dev/null
 	echo $'\n# Block access to dot-prefixed & vagrant configuration files\n<FilesMatch "(^\..+|Vagrantfile|Vagrantprovision\.sh)">\nRequire all denied\n</FilesMatch>\n' | tee -a /etc/apache2/apache2.conf > /dev/null
 
-	if [ ${SETUP_PHP7FPM} = 1 ]; then
+	if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
 
 		echo $'\n------------------------------------------------------------------'
 		echo Setup PHP CLI \& FastCGI Process Manager \| As ${SET_WWW_USER}:${SET_WWW_GROUP}
 
-		apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
+		if [ ${SETUP_PHP7FPM} = 1 ]; then
 
-		[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && apt-get install -y php7.1-mysql
-		[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
-		[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
+			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
 
-		sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
-		sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+			[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && apt-get install -y php7.1-mysql
 
-		sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
-		sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+			[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
+			[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
 
-		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/fpm/php.ini
-		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/cli/php.ini
+			sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
+			sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
 
-		a2enmod proxy_fcgi setenvif
-		a2enconf php7.1-fpm
+			sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
+			sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+
+			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/fpm/php.ini
+			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/cli/php.ini
+
+			a2enmod proxy_fcgi setenvif
+			a2enconf php7.1-fpm
+
+		elif [ ${SETUP_PHP5FPM} = 1 ]; then
+
+			apt-get install -y php5.6 php5.6-fpm php5.6-cli php5.6-curl php5.6-mbstring php5.6-xml
+
+			[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && apt-get install -y php5.6-mysql
+
+			[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
+			[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
+
+			sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
+			sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
+
+			sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
+			sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
+
+			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/5.6/fpm/php.ini
+			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/5.6/cli/php.ini
+
+			a2enmod proxy_fcgi setenvif
+			a2enconf php5.6-fpm
+		fi
 
 		if [ ${SETUP_COMPOSER} = 1 ]; then
 
@@ -348,13 +382,26 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 			apt-get install -y php-xdebug
 
-			grep -q -F 'xdebug.remote_enable' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
-			grep -q -F 'xdebug.remote_host' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
-			grep -q -F 'xdebug.remote_port' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+			if [ ${SETUP_PHP7FPM} = 1 ]; then
 
-			grep -q -F 'xdebug.remote_enable' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
-			grep -q -F 'xdebug.remote_host' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
-			grep -q -F 'xdebug.remote_port' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_enable' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_host' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_port' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+
+				grep -q -F 'xdebug.remote_enable' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_host' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_port' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+
+			elif [ ${SETUP_PHP5FPM} = 1 ]; then
+
+				grep -q -F 'xdebug.remote_enable' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_host' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_port' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+
+				grep -q -F 'xdebug.remote_enable' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_host' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
+				grep -q -F 'xdebug.remote_port' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
+			fi
 		fi
 
 		if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
@@ -540,8 +587,16 @@ if [ ${SETUP_BASH} = 1 ]; then
 
 		echo Adds xdebug toggler \(xon / xoff\)
 
-		echo $'\n# xdebug disabler command alias\nalias xoff="sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug DISABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
-		echo $'\n# xdebug enabler command alias\nalias xon="sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug ENABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
+		if [ ${SETUP_PHP7FPM} = 1 ]; then
+
+			echo $'\n# xdebug disabler command alias\nalias xoff="sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug DISABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
+			echo $'\n# xdebug enabler command alias\nalias xon="sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/7.1/cli/conf.d/20-xdebug.ini; sudo service php7.1-fpm restart; sudo service apache2 restart; echo \\"Xdebug ENABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
+
+		elif [ ${SETUP_PHP5FPM} = 1 ]; then
+
+			echo $'\n# xdebug disabler command alias\nalias xoff="sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/5.6/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^zend_extension=xdebug.so$/;zend_extension=xdebug.so/g\' /etc/php/5.6/cli/conf.d/20-xdebug.ini; sudo service php5.6-fpm restart; sudo service apache2 restart; echo \\"Xdebug DISABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null
+			echo $'\n# xdebug enabler command alias\nalias xon="sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/5.6/fpm/conf.d/20-xdebug.ini; sudo sed -i -e \'s/^;zend_extension=xdebug.so$/zend_extension=xdebug.so/g\' /etc/php/5.6/cli/conf.d/20-xdebug.ini; sudo service php5.6-fpm restart; sudo service apache2 restart; echo \\"Xdebug ENABLED. Restarted PHP-FPM & Apache HTTPD\\""' | tee -a /home/vagrant/.profile > /dev/null		
+		fi
 	fi
 
 	if [ ${SETUP_COMPOSER} = 1 ]; then
@@ -572,7 +627,9 @@ echo Restarting Servers
 [[ ${SETUP_PM2} = 1 ]] && pm2 startup
 
 [[ ${SETUP_APACHE} = 1 ]] && service apache2 restart
+
 [[ ${SETUP_PHP7FPM} = 1 ]] && service php7.1-fpm restart
+[[ ${SETUP_PHP5FPM} = 1 ]] && service php5.6-fpm restart
 
 echo $'\n------------------------------------------------------------------'
 echo PROVISIONING DONE

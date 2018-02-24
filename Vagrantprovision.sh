@@ -4,6 +4,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 SET_LOCALE=en_US.UTF-8
 SET_TIMEZONE=Asia/Kuala_Lumpur
+SET_HOST_NAME=ubuntu-xenial
 
 SET_WWW_USER=vagrant
 SET_WWW_GROUP=vagrant
@@ -160,6 +161,25 @@ echo $'\n------------------------------------------------------------------'
 echo Set default timezone
 
 timedatectl set-timezone ${SET_TIMEZONE}
+
+if [ ${SET_HOST_NAME} != ubuntu-xenial ]; then
+
+	if [[ ${SET_HOST_NAME} =~ ^[a-z0-9\-]+$ ]]; then
+
+		echo $'\n------------------------------------------------------------------'
+		echo Set hostname: ${SET_HOST_NAME}
+
+		sed -i -e 's/ubuntu-xenial/'${SET_HOST_NAME}'/g' /etc/hostname
+    	sed -i -e 's/ubuntu-xenial/'${SET_HOST_NAME}'/g' /etc/hosts
+
+	else
+
+		echo $'\n------------------------------------------------------------------'
+		echo INVALID Hostname: ${SET_HOST_NAME} \| Defaulted to ubuntu-xenial
+
+		SET_HOST_NAME=ubuntu-xenial
+	fi
+fi
 
 if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ] || [ ${SETUP_MARIADB} = 1 ]; then
 
@@ -633,5 +653,7 @@ echo Restarting Servers
 
 echo $'\n------------------------------------------------------------------'
 echo PROVISIONING DONE
+
+[[ ${SET_HOST_NAME} != ubuntu-xenial ]] && echo * New hostname will only take effect upon restart \(vagrant reload\)
 
 cat /dev/null > ~/.bash_history && history -c

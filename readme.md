@@ -17,7 +17,8 @@ Feel free to customize Vagrantprovision.sh for your project.
 Available configurations (provisioning variables):
 
 **SET_LOCALE**=en_US.UTF-8  
-**SET_TIMEZONE**=Asia/Kuala_Lumpur
+**SET_TIMEZONE**=Asia/Kuala_Lumpur  
+**SET_HOST_NAME**=ubuntu-xenial
 
 **SET_WWW_USER**=vagrant  
 **SET_WWW_GROUP**=vagrant  

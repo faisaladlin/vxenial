@@ -595,8 +595,14 @@ fi
 # if www root directory is missing, create it
 if [ ! -d ${SET_WWW_ROOT} ]; then
 
+	echo $'\n------------------------------------------------------------------'
+	echo Create directory: ${SET_WWW_ROOT}
 	mkdir ${SET_WWW_ROOT}
 fi
+
+echo $'\n------------------------------------------------------------------'
+echo Add ${SET_WWW_USER} to the adm group
+adduser ${SET_WWW_USER} adm
 
 if [ ${SETUP_BASH} = 1 ]; then
 

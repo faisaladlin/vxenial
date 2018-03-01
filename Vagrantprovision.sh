@@ -440,13 +440,13 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 			else
 
-				echo Laravel / Lumen not detected. Begin installing...
+				echo Laravel / Lumen not detected. Begin installation...
 
 				VAGRANT_EMPTY=1 # vagrant folder considered empty by default
 
 				for fileordirname in `ls -A /vagrant`; do
 					if [ ${VAGRANT_EMPTY} = 1 ]; then
-						if [ ${fileordirname} != ".DS_Store" ] && [ ${fileordirname} != "thumbs.db" ] && [ ${fileordirname} != "desktop.ini" ] && [ ${fileordirname} != ".git" ] && [ ${fileordirname} != ".gitignore" ] && [ ${fileordirname} != ".gitattributes" ] && [ ${fileordirname} != ".idea" ] && [ ${fileordirname} != ".vagrant" ] && [ ${fileordirname} != "Vagrantfile" ] && [ ${fileordirname} != "Vagrantprovision.sh" ] && [ ${fileordirname} != "README.md" ]; then
+						if [ ${fileordirname} != ".DS_Store" ] && [ ${fileordirname} != "thumbs.db" ] && [ ${fileordirname} != "desktop.ini" ] && [ ${fileordirname} != ".git" ] && [ ${fileordirname} != ".gitignore" ] && [ ${fileordirname} != ".gitattributes" ] && [ ${fileordirname} != ".idea" ] && [ ${fileordirname} != ".vagrant" ] && [ ${fileordirname} != "Vagrantfile" ] && [ ${fileordirname} != "Vagrantprovision.sh" ] && [ ${fileordirname} != "readme.md" ]; then
 							# if file/directory other than .DS_Store, thumbs.db, desktop.ini,
 							# .git, .gitignore, .gitattributes, .idea, .vagrant,
 							# Vagrantfile or Vagrantprovision.sh is found,
@@ -459,7 +459,7 @@ if [ ${SETUP_APACHE} = 1 ]; then
 				if [ ${VAGRANT_EMPTY} = 0 ]; then
 
 					echo Laravel / Lumen installation ABORTED. /vagrant directory NOT EMPTY
-					echo \* Should only contain Vagrantfile, Vagrantprovision.sh \& README.md
+					echo \* Should only contain Vagrantfile, Vagrantprovision.sh \& readme.md
 
 					SETUP_LARAVEL=0
 					SETUP_LUMEN=0
@@ -467,9 +467,9 @@ if [ ${SETUP_APACHE} = 1 ]; then
 				else
 
 					if [ ${SETUP_LARAVEL} = 1 ]; then
-						composer create-project --prefer-dist laravel/laravel project
+						composer create-project --prefer-dist laravel/laravel project "5.5.*"
 					elif [ ${SETUP_LUMEN} = 1 ]; then
-						composer create-project --prefer-dist laravel/lumen project
+						composer create-project --prefer-dist laravel/lumen project "5.5.*"
 					fi
 
 					# if /vagrant/readme.md exists, don't overwrite it with laravel's

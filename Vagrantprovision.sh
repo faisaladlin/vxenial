@@ -467,9 +467,18 @@ if [ ${SETUP_APACHE} = 1 ]; then
 				else
 
 					if [ ${SETUP_LARAVEL} = 1 ]; then
-						composer create-project --prefer-dist laravel/laravel project "5.5.*"
+						if [ ${SETUP_PHP7FPM} = 1 ]; then
+							composer create-project --prefer-dist laravel/laravel project "5.5.*"
+						else # SETUP_PHP5FPM
+							composer create-project --prefer-dist laravel/laravel project "5.4.*"
+						fi
 					elif [ ${SETUP_LUMEN} = 1 ]; then
-						composer create-project --prefer-dist laravel/lumen project "5.5.*"
+						if [ ${SETUP_PHP7FPM} = 1 ]; then
+							composer create-project --prefer-dist laravel/lumen project "5.5.*"
+						else # SETUP_PHP5FPM
+							composer create-project --prefer-dist laravel/lumen project "5.4.*"
+						fi
+						
 					fi
 
 					# if /vagrant/readme.md exists, don't overwrite it with laravel's

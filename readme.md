@@ -24,9 +24,12 @@ Available configurations (provisioning variables):
 **SET_WWW_GROUP**=vagrant  
 **SET_WWW_ROOT**=/vagrant/public
 
+**SET_DB_HOST**=127.0.0.1  
 **SET_DB_NAME**=vagrant  
 **SET_DB_PASSWORD**=vagrant  
 **SET_DB_REMOTE_IP**=192.168.33.1
+
+**SET_REDIS_HOST**=127.0.0.1
 
 **SET_PHP_DISPLAY_ERRORS**=On  
 *On = Enable PHP error output*  
@@ -75,6 +78,24 @@ Available configurations (provisioning variables):
 
 **SETUP_PHP5FPM**=0  
 *Flag 1 = Installs PHP5.6 FastCGI & binds with Apache httpd (unsets with PHP7)*
+
+**SETUP_PHP_EXT_XML**=0  
+*Flag 1 = Installs PHP XML Extension (required by Laravel)*
+
+**SETUP_PHP_EXT_MBSTRING**=0  
+*Flag 1 = Installs PHP Mbstring Extension (required by Laravel & Lumen)*
+
+**SETUP_PHP_EXT_MYSQL**=0  
+*Flag 1 = Installs PHP MySQL Extension (required by Laravel & Lumen)*
+
+**SETUP_PHP_EXT_CURL**=0  
+*Flag 1 = Installs PHP cURL Extension*
+
+**SETUP_PHP_EXT_REDIS**=0  
+*Flag 1 = Installs PHP Redis Extension*
+
+**SETUP_PHP_EXT_MONGODB**=0  
+*Flag 1 = Installs PHP MongoDB Extension*
 
 **SETUP_COMPOSER**=0  
 *Flag 1 = Installs Composer*

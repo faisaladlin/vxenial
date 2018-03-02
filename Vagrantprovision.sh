@@ -10,9 +10,12 @@ SET_WWW_USER=vagrant
 SET_WWW_GROUP=vagrant
 SET_WWW_ROOT=/vagrant/public
 
+SET_DB_HOST=127.0.0.1
 SET_DB_NAME=vagrant
 SET_DB_PASSWORD=vagrant
 SET_DB_REMOTE_IP=192.168.33.1
+
+SET_REDIS_HOST=127.0.0.1
 
 SET_PHP_DISPLAY_ERRORS=On
 
@@ -38,6 +41,13 @@ SETUP_APACHE=0
 
 SETUP_PHP7FPM=0
 SETUP_PHP5FPM=0
+
+SETUP_PHP_EXT_XML=0
+SETUP_PHP_EXT_MBSTRING=0
+SETUP_PHP_EXT_MYSQL=0
+SETUP_PHP_EXT_CURL=0
+SETUP_PHP_EXT_REDIS=0
+SETUP_PHP_EXT_MONGODB=0
 
 SETUP_COMPOSER=0
 SETUP_XDEBUG=0
@@ -89,7 +99,14 @@ if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 
 		echo SETUP_LARAVEL / SETUP_LUMEN Prerequisite \| SET_WWW_ROOT=/vagrant/public
 		SET_WWW_ROOT=/vagrant/public
-	fi	
+	fi
+
+	# required php extensions for Laravel
+	[[ ${SETUP_LARAVEL} = 1 ]] && SETUP_PHP_EXT_XML=1
+
+	# required php extensions for both Laravel & Lumen
+	SETUP_PHP_EXT_MBSTRING=1
+	SETUP_PHP_EXT_MYSQL=1
 fi
 
 if [ ${SETUP_PHP7FPM} = 1 ] && [ ${SETUP_PHP5FPM} = 1 ]; then
@@ -345,12 +362,15 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 		if [ ${SETUP_PHP7FPM} = 1 ]; then
 
-			apt-get install -y php7.1 php7.1-fpm php7.1-cli php7.1-curl php7.1-mbstring php7.1-xml
+			PHP_PACKAGES="php7.1 php7.1-cli php7.1-fpm"
+			[[ ${SETUP_PHP_EXT_XML} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-xml"
+			[[ ${SETUP_PHP_EXT_MBSTRING} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-mbstring"
+			[[ ${SETUP_PHP_EXT_MYSQL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-mysql"
+			[[ ${SETUP_PHP_EXT_CURL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-curl"
+			[[ ${SETUP_PHP_EXT_REDIS} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-redis"
+			[[ ${SETUP_PHP_EXT_MONGODB} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-mongodb"
 
-			[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && apt-get install -y php7.1-mysql
-
-			[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
-			[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
+			apt-get install -y ${PHP_PACKAGES}
 
 			sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
 			sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
@@ -366,12 +386,15 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 		elif [ ${SETUP_PHP5FPM} = 1 ]; then
 
-			apt-get install -y php5.6 php5.6-fpm php5.6-cli php5.6-curl php5.6-mbstring php5.6-xml
+			PHP_PACKAGES="php5.6 php5.6-cli php5.6-fpm"
+			[[ ${SETUP_PHP_EXT_XML} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-xml"
+			[[ ${SETUP_PHP_EXT_MBSTRING} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-mbstring"
+			[[ ${SETUP_PHP_EXT_MYSQL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-mysql"
+			[[ ${SETUP_PHP_EXT_CURL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-curl"
+			[[ ${SETUP_PHP_EXT_REDIS} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-redis"
+			[[ ${SETUP_PHP_EXT_MONGODB} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-mongodb"
 
-			[[ ${SETUP_MYSQL} = 1 || ${SETUP_MARIADB} = 1 ]] && apt-get install -y php5.6-mysql
-
-			[[ ${SETUP_REDIS} = 1 ]] && apt-get install -y php-redis
-			[[ ${SETUP_MONGODB} = 1 ]] && apt-get install -y php-mongodb
+			apt-get install -y ${PHP_PACKAGES}
 
 			sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
 			sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
@@ -531,11 +554,15 @@ if [ ${SETUP_APACHE} = 1 ]; then
 				# if .env file exists
 				if [ -f /vagrant/.env ]; then
 
-					# update database name & password setting in .env
+					# update database host, name & password setting in .env
+					sed -i -e 's/DB_HOST=127.0.0.1/DB_HOST='${SET_DB_HOST}'/g' /vagrant/.env
 					sed -i -e 's/DB_DATABASE=homestead/DB_DATABASE='${SET_DB_NAME}'/g' /vagrant/.env
 					sed -i -e 's/DB_USERNAME=homestead/DB_USERNAME=root/g' /vagrant/.env
 					sed -i -e 's/DB_PASSWORD=secret/DB_PASSWORD='${SET_DB_PASSWORD}'/g' /vagrant/.env
 
+					# update redis host setting in .env
+					[[ ${SETUP_LARAVEL} = 1 ]] && sed -i -e 's/REDIS_HOST=127.0.0.1/REDIS_HOST='${SET_REDIS_HOST}'/g' /vagrant/.env
+					
 					# ... and timezone for Lumen
 					[[ ${SETUP_LUMEN} = 1 ]] && sed -i -e 's@APP_TIMEZONE=UTC@APP_TIMEZONE='${SET_TIMEZONE}'@g' /vagrant/.env
 				fi

@@ -27,7 +27,7 @@ SET_NODE_PORT=3000
 SETUP_NODE8=0
 SETUP_BUILD=0
 SETUP_PM2=0
-SETUP_NGINX=0
+
 SETUP_NODE_PROXY=0
 
 SETUP_MYSQL=0
@@ -38,6 +38,7 @@ SETUP_REDIS=0
 SETUP_BEANSTALKD=0
 
 SETUP_APACHE=0
+SETUP_NGINX=0
 
 SETUP_PHP7FPM=0
 SETUP_PHP5FPM=0
@@ -135,9 +136,9 @@ fi
 
 if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
 
-	if [ ${SETUP_APACHE} != 1 ]; then
+	if [ ${SETUP_APACHE} != 1 ] && [ ${SETUP_NGINX} != 1 ]; then
 
-		echo SETUP_PHP7FPM Prerequisite \| SETUP_APACHE=1
+		echo SETUP_PHP7FPM Prerequisite \(Apache / NGINX\) \| SETUP_APACHE=1
 		SETUP_APACHE=1
 	fi
 fi
@@ -152,15 +153,19 @@ if [ ${SETUP_NODE_PROXY} = 1 ]; then
 
 	if [ ${SETUP_NODE8} != 1 ]; then
 
-		echo Skipped Node reverse proxy. Node not installed \| SETUP_NODE_PROXY=0
+		echo Skipped Node proxy setup. NodeJS not installed \| SETUP_NODE_PROXY=0
 		SETUP_NODE_PROXY=0
-	fi
 
-	if [ ${SETUP_NGINX} != 1 ] && [ ${SETUP_NODE_PROXY} = 1 ]; then
+	elif [ ${SETUP_NGINX} != 1 ]; then
 
-		echo Skipped Node reverse proxy. NGINX not installed \| SETUP_NODE_PROXY=0
+		echo Skipped Node proxy setup. NGINX not installed \| SETUP_NODE_PROXY=0
 		SETUP_NODE_PROXY=0
-	fi
+
+	elif [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
+
+		echo Skipped Node proxy setup. NGINX proxy passed to PHP \| SETUP_NODE_PROXY=0
+		SETUP_NODE_PROXY=0
+	fi	
 fi
 
 if [ ${SETUP_MYSQL} = 1 ] && [ ${SETUP_MARIADB} = 1 ]; then
@@ -253,26 +258,6 @@ if [ ${SETUP_PM2} = 1 ]; then
 	pm2 startup
 fi
 
-if [ ${SETUP_NGINX} = 1 ]; then
-
-	echo $'\n------------------------------------------------------------------'
-	echo Setup NGINX \| As ${SET_WWW_USER}
-
-	apt-get -y install nginx
-
-	sed -i -e 's|user www-data|user '${SET_WWW_USER}'|g' /etc/nginx/nginx.conf
-	sed -i -e 's|root /var/www/html|root '${SET_WWW_ROOT}'|g' /etc/nginx/sites-available/default
-fi
-
-if [ ${SETUP_NODE_PROXY} = 1 ]; then
-
-	echo $'\n------------------------------------------------------------------'
-	echo Setup Node NGINX reverse proxy
-
-	sed -i -e 's|^server {|\nupstream backend {\n\tserver localhost:'${SET_NODE_PORT}';\n}\n\nserver {|' /etc/nginx/sites-available/default
-	sed -i -e 's|^\t\ttry_files $uri $uri/ =404;|\t\ttry_files $uri @backend;\n\t}\n\n\tlocation @backend {\n\n\t\tproxy_pass http://backend;\n\n\t\tproxy_set_header X-Real-IP $remote_addr;\n\t\tproxy_set_header Host $host;\n\t\tproxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade $http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\n\t\tproxy_cache_bypass $http_upgrade;|' /etc/nginx/sites-available/default
-fi
-
 if [ ${SETUP_MYSQL} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'
@@ -354,239 +339,215 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 	echo $'\n# Block access to dot-prefixed directories (i.e. .vagrant / .git)\n<DirectoryMatch ".*\/\..+">\nRequire all denied\n</DirectoryMatch>' | tee -a /etc/apache2/apache2.conf > /dev/null
 	echo $'\n# Block access to dot-prefixed & vagrant configuration files\n<FilesMatch "(^\..+|Vagrantfile|Vagrantprovision\.sh)">\nRequire all denied\n</FilesMatch>\n' | tee -a /etc/apache2/apache2.conf > /dev/null
+fi
 
-	if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
+if [ ${SETUP_NGINX} = 1 ]; then
 
-		echo $'\n------------------------------------------------------------------'
-		echo Setup PHP CLI \& FastCGI Process Manager \| As ${SET_WWW_USER}:${SET_WWW_GROUP}
+	echo $'\n------------------------------------------------------------------'
+	echo Setup NGINX \| As ${SET_WWW_USER}
 
-		if [ ${SETUP_PHP7FPM} = 1 ]; then
+	apt-get -y install nginx
 
-			PHP_PACKAGES="php7.1 php7.1-cli php7.1-fpm"
-			[[ ${SETUP_PHP_EXT_XML} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-xml"
-			[[ ${SETUP_PHP_EXT_MBSTRING} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-mbstring"
-			[[ ${SETUP_PHP_EXT_MYSQL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-mysql"
-			[[ ${SETUP_PHP_EXT_CURL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-curl"
-			[[ ${SETUP_PHP_EXT_REDIS} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-redis"
-			[[ ${SETUP_PHP_EXT_MONGODB} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-mongodb"
+	sed -i -e 's|user www-data|user '${SET_WWW_USER}'|g' /etc/nginx/nginx.conf
+	sed -i -e 's|root /var/www/html|root '${SET_WWW_ROOT}'|g' /etc/nginx/sites-available/default
+	sed -i -e 's|# deny access to .htaccess files|location ~ (/\\..+\|/Vagrantfile\|/Vagrantprovision\\.sh) { deny all; }\n\t# deny access to .htaccess files|g' /etc/nginx/sites-available/default
+fi
 
-			apt-get install -y ${PHP_PACKAGES}
+if [ ${SETUP_NODE_PROXY} = 1 ]; then
 
-			sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
-			sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+	echo $'\n------------------------------------------------------------------'
+	echo Setup Node NGINX reverse proxy
 
-			sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
-			sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+	sed -i -e 's|^server {|\nupstream backend {\n\tserver localhost:'${SET_NODE_PORT}';\n}\n\nserver {|' /etc/nginx/sites-available/default
+	sed -i -e 's|^\t\ttry_files $uri $uri/ =404;|\t\ttry_files $uri @backend;\n\t}\n\n\tlocation @backend {\n\n\t\tproxy_pass http://backend;\n\n\t\tproxy_set_header X-Real-IP $remote_addr;\n\t\tproxy_set_header Host $host;\n\t\tproxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade $http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\n\t\tproxy_cache_bypass $http_upgrade;|' /etc/nginx/sites-available/default
+fi
 
-			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/fpm/php.ini
-			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/cli/php.ini
+if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Setup PHP CLI \& FastCGI Process Manager \| As ${SET_WWW_USER}:${SET_WWW_GROUP}
+
+	if [ ${SETUP_PHP7FPM} = 1 ]; then
+
+		PHP_PACKAGES="php7.1 php7.1-cli php7.1-fpm"
+		[[ ${SETUP_PHP_EXT_XML} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-xml"
+		[[ ${SETUP_PHP_EXT_MBSTRING} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-mbstring"
+		[[ ${SETUP_PHP_EXT_MYSQL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-mysql"
+		[[ ${SETUP_PHP_EXT_CURL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php7.1-curl"
+		[[ ${SETUP_PHP_EXT_REDIS} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-redis"
+		[[ ${SETUP_PHP_EXT_MONGODB} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-mongodb"
+
+		apt-get install -y ${PHP_PACKAGES}
+
+		sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+
+		sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/7.1/fpm/pool.d/www.conf
+
+		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/fpm/php.ini
+		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/7.1/cli/php.ini
+
+		if [ ${SETUP_APACHE} = 1 ]; then
 
 			a2enmod proxy_fcgi setenvif
 			a2enconf php7.1-fpm
 
-		elif [ ${SETUP_PHP5FPM} = 1 ]; then
+		elif [ ${SETUP_NGINX} = 1 ]; then
 
-			PHP_PACKAGES="php5.6 php5.6-cli php5.6-fpm"
-			[[ ${SETUP_PHP_EXT_XML} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-xml"
-			[[ ${SETUP_PHP_EXT_MBSTRING} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-mbstring"
-			[[ ${SETUP_PHP_EXT_MYSQL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-mysql"
-			[[ ${SETUP_PHP_EXT_CURL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-curl"
-			[[ ${SETUP_PHP_EXT_REDIS} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-redis"
-			[[ ${SETUP_PHP_EXT_MONGODB} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-mongodb"
+			sed -i -e 's/index.nginx-debian.html;/index.nginx-debian.html index.php;/g' /etc/nginx/sites-available/default
+			sed -i -e 's|# pass the PHP scripts to FastCGI|location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php7.1-fpm.sock; }\n\t# pass the PHP scripts to FastCGI|g' /etc/nginx/sites-available/default
+			sed -i -e 's|try_files $uri $uri/ =404;|try_files $uri $uri/ /index.php?$query_string;|g' /etc/nginx/sites-available/default
+		fi
 
-			apt-get install -y ${PHP_PACKAGES}
+	elif [ ${SETUP_PHP5FPM} = 1 ]; then
 
-			sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
-			sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
+		PHP_PACKAGES="php5.6 php5.6-cli php5.6-fpm"
+		[[ ${SETUP_PHP_EXT_XML} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-xml"
+		[[ ${SETUP_PHP_EXT_MBSTRING} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-mbstring"
+		[[ ${SETUP_PHP_EXT_MYSQL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-mysql"
+		[[ ${SETUP_PHP_EXT_CURL} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php5.6-curl"
+		[[ ${SETUP_PHP_EXT_REDIS} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-redis"
+		[[ ${SETUP_PHP_EXT_MONGODB} = 1 ]] && PHP_PACKAGES="${PHP_PACKAGES} php-mongodb"
 
-			sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
-			sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
+		apt-get install -y ${PHP_PACKAGES}
 
-			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/5.6/fpm/php.ini
-			sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/5.6/cli/php.ini
+		sed -i '/^user = /c\user = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
+		sed -i '/^group = /c\group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
+
+		sed -i '/^listen\.owner =/c\listen.owner = '${SET_WWW_USER} /etc/php/5.6/fpm/pool.d/www.conf
+		sed -i '/^listen\.group =/c\listen.group = '${SET_WWW_GROUP} /etc/php/5.6/fpm/pool.d/www.conf
+
+		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/5.6/fpm/php.ini
+		sed -i '/^display_errors =/c\display_errors = '${SET_PHP_DISPLAY_ERRORS} /etc/php/5.6/cli/php.ini
+
+		if [ ${SETUP_APACHE} = 1 ]; then
 
 			a2enmod proxy_fcgi setenvif
 			a2enconf php5.6-fpm
+
+		elif [ ${SETUP_NGINX} = 1 ]; then
+
+			sed -i -e 's/index.nginx-debian.html;/index.nginx-debian.html index.php;/g' /etc/nginx/sites-available/default
+			sed -i -e 's|# pass the PHP scripts to FastCGI|location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php5.6-fpm.sock; }\n\t# pass the PHP scripts to FastCGI|g' /etc/nginx/sites-available/default
+			sed -i -e 's|try_files $uri $uri/ =404;|try_files $uri $uri/ /index.php?$query_string;|g' /etc/nginx/sites-available/default
 		fi
+		
+	fi
 
-		if [ ${SETUP_COMPOSER} = 1 ]; then
+	if [ ${SETUP_COMPOSER} = 1 ]; then
 
-			echo $'\n------------------------------------------------------------------'
-			echo Setup PHP Composer
+		echo $'\n------------------------------------------------------------------'
+		echo Setup PHP Composer
 
-			apt-get install -y composer
-			composer config --global repo.packagist composer https://packagist.org
+		apt-get install -y composer
+		composer config --global repo.packagist composer https://packagist.org
+	fi
+
+	if [ ${SETUP_XDEBUG} = 1 ]; then
+
+		echo $'\n------------------------------------------------------------------'
+		echo Setup PHP XDebug
+
+		apt-get install -y php-xdebug
+
+		if [ ${SETUP_PHP7FPM} = 1 ]; then
+
+			grep -q -F 'xdebug.remote_enable' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_host' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_port' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+
+			grep -q -F 'xdebug.remote_enable' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_host' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_port' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+
+		elif [ ${SETUP_PHP5FPM} = 1 ]; then
+
+			grep -q -F 'xdebug.remote_enable' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_host' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_port' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+
+			grep -q -F 'xdebug.remote_enable' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_host' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
+			grep -q -F 'xdebug.remote_port' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
 		fi
+	fi
 
-		if [ ${SETUP_XDEBUG} = 1 ]; then
+	if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
 
-			echo $'\n------------------------------------------------------------------'
-			echo Setup PHP XDebug
+		echo $'\n------------------------------------------------------------------'
+		echo Setup Laravel / Lumen project, dependencies \& configurations
 
-			apt-get install -y php-xdebug
+		LARAVEL_INSTALLED=0
 
-			if [ ${SETUP_PHP7FPM} = 1 ]; then
+		# if laravel artisan exists
+		if [ -f /vagrant/artisan ]; then
 
-				grep -q -F 'xdebug.remote_enable' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_host' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_port' /etc/php/7.1/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/fpm/conf.d/20-xdebug.ini > /dev/null
+			LARAVEL_INSTALLED=1
 
-				grep -q -F 'xdebug.remote_enable' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_host' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_port' /etc/php/7.1/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/7.1/cli/conf.d/20-xdebug.ini > /dev/null
+			echo Laravel / Lumen detected. Begin configuring...
 
-			elif [ ${SETUP_PHP5FPM} = 1 ]; then
+		else
 
-				grep -q -F 'xdebug.remote_enable' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_host' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_port' /etc/php/5.6/fpm/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/5.6/fpm/conf.d/20-xdebug.ini > /dev/null
+			echo Laravel / Lumen not detected. Begin installation...
 
-				grep -q -F 'xdebug.remote_enable' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_enable=1' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_host' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_host='${SET_XDEBUG_REMOTE_IP}$'' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
-				grep -q -F 'xdebug.remote_port' /etc/php/5.6/cli/conf.d/20-xdebug.ini || echo $'xdebug.remote_port='${SET_XDEBUG_REMOTE_PORT}$'' | tee -a /etc/php/5.6/cli/conf.d/20-xdebug.ini > /dev/null
-			fi
-		fi
+			VAGRANT_EMPTY=1 # vagrant folder considered empty by default
 
-		if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
+			for fileordirname in `ls -A /vagrant`; do
+				if [ ${VAGRANT_EMPTY} = 1 ]; then
+					if [ ${fileordirname} != ".DS_Store" ] && [ ${fileordirname} != "thumbs.db" ] && [ ${fileordirname} != "desktop.ini" ] && [ ${fileordirname} != ".git" ] && [ ${fileordirname} != ".gitignore" ] && [ ${fileordirname} != ".gitattributes" ] && [ ${fileordirname} != ".idea" ] && [ ${fileordirname} != ".vagrant" ] && [ ${fileordirname} != "Vagrantfile" ] && [ ${fileordirname} != "Vagrantprovision.sh" ] && [ ${fileordirname} != "readme.md" ]; then
+						# if file/directory other than .DS_Store, thumbs.db, desktop.ini,
+						# .git, .gitignore, .gitattributes, .idea, .vagrant,
+						# Vagrantfile or Vagrantprovision.sh is found,
+						# /vagrant folder is NOT considered empty
+						VAGRANT_EMPTY=0
+					fi
+				fi
+			done
 
-			echo $'\n------------------------------------------------------------------'
-			echo Setup Laravel / Lumen project, dependencies \& configurations
+			if [ ${VAGRANT_EMPTY} = 0 ]; then
 
-			LARAVEL_INSTALLED=0
+				echo Laravel / Lumen installation ABORTED. /vagrant directory NOT EMPTY
+				echo \* Should only contain Vagrantfile, Vagrantprovision.sh \& readme.md
 
-			# if laravel artisan exists
-			if [ -f /vagrant/artisan ]; then
-
-				LARAVEL_INSTALLED=1
-
-				echo Laravel / Lumen detected. Begin configuring...
+				SETUP_LARAVEL=0
+				SETUP_LUMEN=0
 
 			else
 
-				echo Laravel / Lumen not detected. Begin installation...
-
-				VAGRANT_EMPTY=1 # vagrant folder considered empty by default
-
-				for fileordirname in `ls -A /vagrant`; do
-					if [ ${VAGRANT_EMPTY} = 1 ]; then
-						if [ ${fileordirname} != ".DS_Store" ] && [ ${fileordirname} != "thumbs.db" ] && [ ${fileordirname} != "desktop.ini" ] && [ ${fileordirname} != ".git" ] && [ ${fileordirname} != ".gitignore" ] && [ ${fileordirname} != ".gitattributes" ] && [ ${fileordirname} != ".idea" ] && [ ${fileordirname} != ".vagrant" ] && [ ${fileordirname} != "Vagrantfile" ] && [ ${fileordirname} != "Vagrantprovision.sh" ] && [ ${fileordirname} != "readme.md" ]; then
-							# if file/directory other than .DS_Store, thumbs.db, desktop.ini,
-							# .git, .gitignore, .gitattributes, .idea, .vagrant,
-							# Vagrantfile or Vagrantprovision.sh is found,
-							# /vagrant folder is NOT considered empty
-							VAGRANT_EMPTY=0
-						fi
+				if [ ${SETUP_LARAVEL} = 1 ]; then
+					if [ ${SETUP_PHP7FPM} = 1 ]; then
+						composer create-project --prefer-dist laravel/laravel project "5.5.*"
+					else # SETUP_PHP5FPM
+						composer create-project --prefer-dist laravel/laravel project "5.4.*"
 					fi
-				done
-
-				if [ ${VAGRANT_EMPTY} = 0 ]; then
-
-					echo Laravel / Lumen installation ABORTED. /vagrant directory NOT EMPTY
-					echo \* Should only contain Vagrantfile, Vagrantprovision.sh \& readme.md
-
-					SETUP_LARAVEL=0
-					SETUP_LUMEN=0
-
-				else
-
-					if [ ${SETUP_LARAVEL} = 1 ]; then
-						if [ ${SETUP_PHP7FPM} = 1 ]; then
-							composer create-project --prefer-dist laravel/laravel project "5.5.*"
-						else # SETUP_PHP5FPM
-							composer create-project --prefer-dist laravel/laravel project "5.4.*"
-						fi
-					elif [ ${SETUP_LUMEN} = 1 ]; then
-						if [ ${SETUP_PHP7FPM} = 1 ]; then
-							composer create-project --prefer-dist laravel/lumen project "5.5.*"
-						else # SETUP_PHP5FPM
-							composer create-project --prefer-dist laravel/lumen project "5.4.*"
-						fi
-						
+				elif [ ${SETUP_LUMEN} = 1 ]; then
+					if [ ${SETUP_PHP7FPM} = 1 ]; then
+						composer create-project --prefer-dist laravel/lumen project "5.5.*"
+					else # SETUP_PHP5FPM
+						composer create-project --prefer-dist laravel/lumen project "5.4.*"
 					fi
-
-					# if /vagrant/readme.md exists, don't overwrite it with laravel's
-					[[ -f /vagrant/readme.md ]] && rm project/readme.md
-
-					mv -v project/* /vagrant
-					[[ -f project/.env ]] && mv -v project/.env /vagrant
-					[[ -f project/.env.example ]] && mv -v project/.env.example /vagrant
-					[[ -f project/.gitattributes ]] && mv -v project/.gitattributes /vagrant
-
-					# overwrite .gitignore only if it is missing from /vagrant, otherwise preserve it
-					[[ -f project/.gitignore && ! -f /vagrant/.gitignore ]] && mv -v project/.gitignore /vagrant
-
-					rm -rf project
-
-					LARAVEL_INSTALLED=1
-				fi
-			fi
-
-			if [ ${LARAVEL_INSTALLED} = 1 ]; then
-
-				# if composer.json file exists
-				if [ -f /vagrant/composer.json ]; then
-
-					# ... but vendor directory is missing
-					if [ ! -d /vagrant/vendor ]; then
-
-						# change current directory
-						cd /vagrant
-
-						# pull all dependencies
-						composer install
-
-						# unset package composer flag
-						SETUP_PACKAGES_COMPOSER=0
-					fi
-				fi
-
-				# if .env file is missing
-				if [ ! -f /vagrant/.env ]; then
-
-					# ... but .env.example file exists
-					if [ -f /vagrant/.env.example ]; then
-
-						# create new .env file from .env.example
-						cp /vagrant/.env.example /vagrant/.env
-					fi
-				fi
-
-				# if .env file exists
-				if [ -f /vagrant/.env ]; then
-
-					# update database host, name & password setting in .env
-					sed -i -e 's/DB_HOST=127.0.0.1/DB_HOST='${SET_DB_HOST}'/g' /vagrant/.env
-					sed -i -e 's/DB_DATABASE=homestead/DB_DATABASE='${SET_DB_NAME}'/g' /vagrant/.env
-					sed -i -e 's/DB_USERNAME=homestead/DB_USERNAME=root/g' /vagrant/.env
-					sed -i -e 's/DB_PASSWORD=secret/DB_PASSWORD='${SET_DB_PASSWORD}'/g' /vagrant/.env
-
-					# update redis host setting in .env
-					[[ ${SETUP_LARAVEL} = 1 ]] && sed -i -e 's/REDIS_HOST=127.0.0.1/REDIS_HOST='${SET_REDIS_HOST}'/g' /vagrant/.env
 					
-					# ... and timezone for Lumen
-					[[ ${SETUP_LUMEN} = 1 ]] && sed -i -e 's@APP_TIMEZONE=UTC@APP_TIMEZONE='${SET_TIMEZONE}'@g' /vagrant/.env
 				fi
 
-				# if APP_KEY not set in .env file
-				if ! grep -q 'APP_KEY=base64' /vagrant/.env; then
+				# if /vagrant/readme.md exists, don't overwrite it with laravel's
+				[[ -f /vagrant/readme.md ]] && rm project/readme.md
 
-					if [ ${SETUP_LARAVEL} = 1 ]; then
+				mv -v project/* /vagrant
+				[[ -f project/.env ]] && mv -v project/.env /vagrant
+				[[ -f project/.env.example ]] && mv -v project/.env.example /vagrant
+				[[ -f project/.gitattributes ]] && mv -v project/.gitattributes /vagrant
 
-						# generate app key
-						php /vagrant/artisan key:generate
-						
-					elif [ ${SETUP_LUMEN} = 1 ]; then
+				# overwrite .gitignore only if it is missing from /vagrant, otherwise preserve it
+				[[ -f project/.gitignore && ! -f /vagrant/.gitignore ]] && mv -v project/.gitignore /vagrant
 
-						# generate app key (lumen)
-						/usr/bin/php -r "file_put_contents('/vagrant/.env', preg_replace('/APP_KEY=\n/', 'APP_KEY=base64:' . base64_encode(random_bytes(32)) . chr(10), file_get_contents('/vagrant/.env')));" > /dev/null
-						
-					fi
-				fi
+				rm -rf project
+
+				LARAVEL_INSTALLED=1
 			fi
-
 		fi
 
-		if [ ${SETUP_PACKAGES_COMPOSER} = 1 ]; then
+		if [ ${LARAVEL_INSTALLED} = 1 ]; then
 
 			# if composer.json file exists
 			if [ -f /vagrant/composer.json ]; then
@@ -594,15 +555,78 @@ if [ ${SETUP_APACHE} = 1 ]; then
 				# ... but vendor directory is missing
 				if [ ! -d /vagrant/vendor ]; then
 
-					echo $'\n------------------------------------------------------------------'
-					echo Setup Composer Packages
-
 					# change current directory
 					cd /vagrant
 
 					# pull all dependencies
 					composer install
+
+					# unset package composer flag
+					SETUP_PACKAGES_COMPOSER=0
 				fi
+			fi
+
+			# if .env file is missing
+			if [ ! -f /vagrant/.env ]; then
+
+				# ... but .env.example file exists
+				if [ -f /vagrant/.env.example ]; then
+
+					# create new .env file from .env.example
+					cp /vagrant/.env.example /vagrant/.env
+				fi
+			fi
+
+			# if .env file exists
+			if [ -f /vagrant/.env ]; then
+
+				# update database host, name & password setting in .env
+				sed -i -e 's/DB_HOST=127.0.0.1/DB_HOST='${SET_DB_HOST}'/g' /vagrant/.env
+				sed -i -e 's/DB_DATABASE=homestead/DB_DATABASE='${SET_DB_NAME}'/g' /vagrant/.env
+				sed -i -e 's/DB_USERNAME=homestead/DB_USERNAME=root/g' /vagrant/.env
+				sed -i -e 's/DB_PASSWORD=secret/DB_PASSWORD='${SET_DB_PASSWORD}'/g' /vagrant/.env
+
+				# update redis host setting in .env
+				[[ ${SETUP_LARAVEL} = 1 ]] && sed -i -e 's/REDIS_HOST=127.0.0.1/REDIS_HOST='${SET_REDIS_HOST}'/g' /vagrant/.env
+				
+				# ... and timezone for Lumen
+				[[ ${SETUP_LUMEN} = 1 ]] && sed -i -e 's@APP_TIMEZONE=UTC@APP_TIMEZONE='${SET_TIMEZONE}'@g' /vagrant/.env
+			fi
+
+			# if APP_KEY not set in .env file
+			if ! grep -q 'APP_KEY=base64' /vagrant/.env; then
+
+				if [ ${SETUP_LARAVEL} = 1 ]; then
+
+					# generate app key
+					php /vagrant/artisan key:generate
+					
+				elif [ ${SETUP_LUMEN} = 1 ]; then
+
+					# generate app key (lumen)
+					/usr/bin/php -r "file_put_contents('/vagrant/.env', preg_replace('/APP_KEY=\n/', 'APP_KEY=base64:' . base64_encode(random_bytes(32)) . chr(10), file_get_contents('/vagrant/.env')));" > /dev/null
+					
+				fi
+			fi
+		fi
+	fi
+
+	if [ ${SETUP_PACKAGES_COMPOSER} = 1 ]; then
+
+		# if composer.json file exists
+		if [ -f /vagrant/composer.json ]; then
+
+			# ... but vendor directory is missing
+			if [ ! -d /vagrant/vendor ]; then
+
+				echo $'\n------------------------------------------------------------------'
+				echo Setup Composer Packages
+
+				# change current directory
+				cd /vagrant
+
+				# pull all dependencies
+				composer install
 			fi
 		fi
 	fi

@@ -49,11 +49,8 @@ Available configurations (provisioning variables):
 **SETUP_PM2**=0  
 *Flag 1 = Installs PM2 node service manager*
 
-**SETUP_NGINX**=0  
-*Flag 1 = Installs NGINX web server*
-
 **SETUP_NODE_PROXY**=0  
-*Flag 1 = Configure NGINX node proxy pass*
+*Flag 1 = Configure Node proxy pass (binds with NGINX)*
 
 **SETUP_MYSQL**=0  
 *Flag 1 = Installs MySQL database (unsets with MariaDB)*
@@ -73,11 +70,14 @@ Available configurations (provisioning variables):
 **SETUP_APACHE**=0  
 *Flag 1 = Installs Apache 2.4 httpd web server*
 
+**SETUP_NGINX**=0  
+*Flag 1 = Installs NGINX web server (unsets with Apache)*
+
 **SETUP_PHP7FPM**=0  
-*Flag 1 = Installs PHP7.1 FastCGI & binds with Apache httpd*
+*Flag 1 = Installs PHP7.1 FPM (binds with Apache / NGINX)*
 
 **SETUP_PHP5FPM**=0  
-*Flag 1 = Installs PHP5.6 FastCGI & binds with Apache httpd (unsets with PHP7)*
+*Flag 1 = Installs PHP5.6 FPM (binds with Apache / NGINX) (unsets with PHP7)*
 
 **SETUP_PHP_EXT_XML**=0  
 *Flag 1 = Installs PHP XML Extension (required by Laravel)*
@@ -117,7 +117,7 @@ Available configurations (provisioning variables):
 *Flag 1 = Installs NPM packages (with package.json, without node_modules folder)*
 
 **SETUP_BASH**=1  
-*Flag 1 = Adds a few handy aliases in ~/.profile*
+*Flag 1 = Adds command shortcuts & cd /vagrant on ssh login*
 
 ### Prerequisites ###
 

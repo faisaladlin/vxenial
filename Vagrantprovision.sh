@@ -397,7 +397,7 @@ if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
 
 			sed -i -e 's/index.nginx-debian.html;/index.nginx-debian.html index.php;/g' /etc/nginx/sites-available/default
 			sed -i -e 's|# pass the PHP scripts to FastCGI|location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php7.1-fpm.sock; }\n\t# pass the PHP scripts to FastCGI|g' /etc/nginx/sites-available/default
-			sed -i -e 's|try_files $uri $uri/ =404;|try_files $uri $uri/ /index.php?$query_string;|g' /etc/nginx/sites-available/default
+			sed -i -e 's|try_files $uri $uri/ =404;|try_files $uri $uri/ /index.php$is_args$args;|g' /etc/nginx/sites-available/default
 		fi
 
 	elif [ ${SETUP_PHP5FPM} = 1 ]; then
@@ -430,7 +430,7 @@ if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
 
 			sed -i -e 's/index.nginx-debian.html;/index.nginx-debian.html index.php;/g' /etc/nginx/sites-available/default
 			sed -i -e 's|# pass the PHP scripts to FastCGI|location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:/run/php/php5.6-fpm.sock; }\n\t# pass the PHP scripts to FastCGI|g' /etc/nginx/sites-available/default
-			sed -i -e 's|try_files $uri $uri/ =404;|try_files $uri $uri/ /index.php?$query_string;|g' /etc/nginx/sites-available/default
+			sed -i -e 's|try_files $uri $uri/ =404;|try_files $uri $uri/ /index.php$is_args$args;|g' /etc/nginx/sites-available/default
 		fi
 		
 	fi

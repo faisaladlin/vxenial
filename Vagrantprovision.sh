@@ -24,6 +24,12 @@ SET_XDEBUG_REMOTE_PORT=9000
 
 SET_NODE_PORT=3000
 
+SET_CERT_COUNTRY=MY
+SET_CERT_STATE=Selangor
+SET_CERT_CITY=Cyberjaya
+SET_CERT_ORGANIZATION=Vagrant
+SET_CERT_COMMON_NAME=vagrant.host
+
 SETUP_NODE8=0
 SETUP_BUILD=0
 SETUP_PM2=0
@@ -42,6 +48,8 @@ SETUP_NGINX=0
 
 SETUP_PHP7FPM=0
 SETUP_PHP5FPM=0
+
+SETUP_HTTPS=0
 
 SETUP_PHP_EXT_XML=0
 SETUP_PHP_EXT_MBSTRING=0
@@ -147,6 +155,15 @@ if [ ${SETUP_NGINX} = 1 ] && [ ${SETUP_APACHE} = 1 ]; then
 
 	echo NGINX disabled \(May not co-exist with Apache HTTPd\) \| SETUP_NGINX=0
 	SETUP_NGINX=0
+fi
+
+if [ ${SETUP_HTTPS} = 1 ]; then
+
+	if [ ${SETUP_APACHE} != 1 ] && [ ${SETUP_NGINX} != 1 ]; then
+
+		echo HTTPS disabled \(No web server installed\) \| SETUP_HTTPS=0
+		SETUP_HTTPS=0
+	fi
 fi
 
 if [ ${SETUP_NODE_PROXY} = 1 ]; then
@@ -323,6 +340,21 @@ if [ ${SETUP_BEANSTALKD} = 1 ]; then
 	apt-get install -y beanstalkd
 fi
 
+if [ ${SETUP_HTTPS} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Creating Self-signed SSL certificate
+
+	# create certificate folder
+	mkdir /home/vagrant/certificate
+
+	# create certificate configuration file : vagrant.cert.conf
+	echo $'[ req ]\ndefault_bits = 2048\ndefault_keyfile = server-key.pem\ndistinguished_name = subject\nreq_extensions = req_ext\nx509_extensions = x509_ext\nstring_mask = utf8only\n\n[ subject ]\ncountryName = Country Name (2 letter code)\ncountryName_default = '${SET_CERT_COUNTRY}$'\n\nstateOrProvinceName = State or Province Name (full name)\nstateOrProvinceName_default = '${SET_CERT_STATE}$'\n\nlocalityName = Locality Name (eg, city)\nlocalityName_default = '${SET_CERT_CITY}$'\n\norganizationName = Organization Name (eg, company)\norganizationName_default = '${SET_CERT_ORGANIZATION}$'\n\ncommonName = Common Name (e.g. server FQDN or YOUR name)\ncommonName_default = '${SET_CERT_COMMON_NAME}$'\n\nemailAddress = Email Address\nemailAddress_default = test@'${SET_CERT_COMMON_NAME}$'\n\n[ x509_ext ]\n\nsubjectKeyIdentifier = hash\nauthorityKeyIdentifier = keyid,issuer\n\nbasicConstraints = CA:FALSE\nkeyUsage = digitalSignature, keyEncipherment\nsubjectAltName = @alternate_names\nnsComment = "OpenSSL Generated Certificate"\n\n[ req_ext ]\n\nsubjectKeyIdentifier = hash\n\nbasicConstraints = CA:FALSE\nkeyUsage = digitalSignature, keyEncipherment\nsubjectAltName = @alternate_names\nnsComment = "OpenSSL Generated Certificate"\n\n[ alternate_names ]\n\nDNS.1 = '${SET_CERT_COMMON_NAME}$'\nDNS.2 = www.'${SET_CERT_COMMON_NAME}$'\n' > /home/vagrant/certificate/vagrant.cert.conf
+
+	# generate certificate & key file : vagrant.cert.pem & vagrant.key.pem
+	openssl req -config /home/vagrant/certificate/vagrant.cert.conf -new -newkey rsa:2048 -x509 -sha256 -nodes -days 365 -subj "/C=${SET_CERT_COUNTRY}/ST=${SET_CERT_STATE}/L=${SET_CERT_CITY}/O=${SET_CERT_ORGANIZATION}/CN=${SET_CERT_COMMON_NAME}" -keyout /home/vagrant/certificate/vagrant.key.pem -out /home/vagrant/certificate/vagrant.cert.pem
+fi
+
 if [ ${SETUP_APACHE} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'
@@ -337,6 +369,22 @@ if [ ${SETUP_APACHE} = 1 ]; then
 
 	sed -i -e 's@DocumentRoot /var/www/html@DocumentRoot '${SET_WWW_ROOT}'\n\n\t<Directory "'${SET_WWW_ROOT}'">\n\tAllowOverride All\n\tOptions +FollowSymLinks -Indexes\n\tRequire all granted\n\t</Directory>@g' /etc/apache2/sites-enabled/000-default.conf
 
+	if [ ${SETUP_HTTPS} = 1 ]; then
+
+		echo $'\n------------------------------------------------------------------'
+		echo Enabling Apache HTTPS
+
+		# enable apache ssl modules & default ssl site
+		a2enmod ssl
+		a2enmod headers
+		a2ensite default-ssl
+
+		# edit ssl site config file | default-ssl.conf
+		sed -i -e 's@DocumentRoot /var/www/html@DocumentRoot '${SET_WWW_ROOT}'\n\n\t\t<Directory "'${SET_WWW_ROOT}'">\n\t\tAllowOverride All\n\t\tOptions +FollowSymLinks -Indexes\n\t\tRequire all granted\n\t\t</Directory>@g' /etc/apache2/sites-enabled/default-ssl.conf
+		sed -i '/^\t\tSSLCertificateFile/c\\t\tSSLCertificateFile /home/vagrant/certificate/vagrant.cert.pem' /etc/apache2/sites-enabled/default-ssl.conf
+		sed -i '/^\t\tSSLCertificateKeyFile/c\\t\tSSLCertificateKeyFile /home/vagrant/certificate/vagrant.key.pem' /etc/apache2/sites-enabled/default-ssl.conf
+	fi
+
 	echo $'\n# Block access to dot-prefixed directories (i.e. .vagrant / .git)\n<DirectoryMatch ".*\/\..+">\nRequire all denied\n</DirectoryMatch>' | tee -a /etc/apache2/apache2.conf > /dev/null
 	echo $'\n# Block access to dot-prefixed & vagrant configuration files\n<FilesMatch "(^\..+|Vagrantfile|Vagrantprovision\.sh)">\nRequire all denied\n</FilesMatch>\n' | tee -a /etc/apache2/apache2.conf > /dev/null
 fi
@@ -350,6 +398,22 @@ if [ ${SETUP_NGINX} = 1 ]; then
 
 	sed -i -e 's|user www-data|user '${SET_WWW_USER}'|g' /etc/nginx/nginx.conf
 	sed -i -e 's|root /var/www/html|root '${SET_WWW_ROOT}'|g' /etc/nginx/sites-available/default
+
+	if [ ${SETUP_HTTPS} = 1 ]; then
+
+		echo $'\n------------------------------------------------------------------'
+		echo Enabling NGINX HTTPS
+
+		# create nginx self-signed config
+		echo 'ssl_certificate /home/vagrant/certificate/vagrant.cert.pem;' | tee -a /etc/nginx/snippets/self-signed.conf > /dev/null
+		echo 'ssl_certificate_key /home/vagrant/certificate/vagrant.key.pem;' | tee -a /etc/nginx/snippets/self-signed.conf > /dev/null
+
+		# edit site config file to allow ssl
+		sed -i -e 's/# listen 443/listen 443/g' /etc/nginx/sites-available/default
+		sed -i -e 's/# listen \[::\]:443/listen [::]:443/g' /etc/nginx/sites-available/default
+		sed -i -e 's|# include snippets/snakeoil.conf;|include snippets/self-signed.conf;|g' /etc/nginx/sites-available/default
+	fi
+
 	sed -i -e 's|# deny access to .htaccess files|location ~ (/\\..+\|/Vagrantfile\|/Vagrantprovision\\.sh) { deny all; }\n\t# deny access to .htaccess files|g' /etc/nginx/sites-available/default
 fi
 

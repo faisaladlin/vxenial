@@ -40,6 +40,12 @@ Available configurations (provisioning variables):
 
 **SET_NODE_PORT**=3000
 
+**SET_CERT_COUNTRY**=MY  
+**SET_CERT_STATE**=Selangor  
+**SET_CERT_CITY**=Cyberjaya  
+**SET_CERT_ORGANIZATION**=Vagrant  
+**SET_CERT_COMMON_NAME**=vagrant.host
+
 **SETUP_NODE8**=0  
 *Flag 1 = Installs Node 8*
 
@@ -78,6 +84,9 @@ Available configurations (provisioning variables):
 
 **SETUP_PHP5FPM**=0  
 *Flag 1 = Installs PHP5.6 FPM (binds with Apache / NGINX) (unsets with PHP7)*
+
+**SETUP_HTTPS**=0  
+*Flag 1 = Setup HTTPS with self-signed certs (binds with Apache / NGINX)*
 
 **SETUP_PHP_EXT_XML**=0  
 *Flag 1 = Installs PHP XML Extension (required by Laravel)*
@@ -139,9 +148,12 @@ Available configurations (provisioning variables):
 `vagrant ssh`
 6. Optional: Browse the web server from host  
 http://192.168.33.10
-7. Optional: Connect to the database from host  
+7. Optional: Browse the web server (HTTPS) from host  
+https://192.168.33.10  
+Note: Self-signed certificate must be added into trusted list
+8. Optional: Connect to the database from host  
 `server : 192.168.33.10 | database : vagrant | user : root | password : vagrant`
-8. Optional (node project): create project, install dependencies, run as service  
+9. Optional (node project): create project, install dependencies, run as service  
 `(ssh into vagrant)`  
 `npm init`  
 `npm install express (if required)`  

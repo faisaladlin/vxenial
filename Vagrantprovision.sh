@@ -5,6 +5,7 @@ export DEBIAN_FRONTEND=noninteractive
 SET_LOCALE=en_US.UTF-8
 SET_TIMEZONE=Asia/Kuala_Lumpur
 SET_HOST_NAME=ubuntu-xenial
+SET_HOST_FQDN=ubuntu-xenial.vagrant.host
 
 SET_WWW_USER=vagrant
 SET_WWW_GROUP=vagrant
@@ -28,7 +29,7 @@ SET_CERT_COUNTRY=MY
 SET_CERT_STATE=Selangor
 SET_CERT_CITY=Cyberjaya
 SET_CERT_ORGANIZATION=Vagrant
-SET_CERT_COMMON_NAME=vagrant.host
+SET_CERT_COMMON_NAME=${SET_HOST_FQDN}
 
 SETUP_NODE8=0
 SETUP_BUILD=0
@@ -66,6 +67,8 @@ SETUP_LUMEN=0
 
 SETUP_PACKAGES_COMPOSER=0
 SETUP_PACKAGES_NPM=0
+
+SETUP_WEBMIN=0
 
 SETUP_BASH=1
 
@@ -220,7 +223,7 @@ if [ ${SET_HOST_NAME} != ubuntu-xenial ]; then
 	fi
 fi
 
-if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ] || [ ${SETUP_MARIADB} = 1 ]; then
+if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ] || [ ${SETUP_BEANSTALKD} = 1 ] || [ ${SETUP_MARIADB} = 1 ] || [ ${SETUP_WEBMIN} = 1 ]; then
 
 	echo $'\n------------------------------------------------------------------'
 	echo Add external keys \& package archives
@@ -239,6 +242,15 @@ if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 
 	if [ ${SETUP_MARIADB} = 1 ]; then
 
 		add-apt-repository 'deb [arch=amd64,i386] http://sgp1.mirrors.digitalocean.com/mariadb/repo/10.1/ubuntu xenial main'
+	fi
+
+	if [ ${SETUP_WEBMIN} = 1 ]; then
+
+		add-apt-repository 'deb https://download.webmin.com/download/repository sarge contrib'
+
+		# fetch & add webmin GPG key
+		wget http://www.webmin.com/jcameron-key.asc
+		apt-key add jcameron-key.asc
 	fi
 
 	apt-get update -y
@@ -716,6 +728,14 @@ if [ ${SETUP_NODE8} = 1 ] && [ ${SETUP_PACKAGES_NPM} = 1 ]; then
 	fi
 fi
 
+if [ ${SETUP_WEBMIN} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Install Webmin Control Panel
+
+	apt-get install -y webmin
+fi
+
 # if www root directory is missing, create it
 if [ ! -d ${SET_WWW_ROOT} ]; then
 
@@ -800,6 +820,15 @@ echo Restarting Servers
 echo $'\n------------------------------------------------------------------'
 echo PROVISIONING DONE
 
-[[ ${SET_HOST_NAME} != ubuntu-xenial ]] && echo * New hostname will only take effect upon restart \(vagrant reload\)
+VAGRANT_IP=`grep private_network /vagrant/Vagrantfile | grep -o '[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*'`
+echo $'\n'\* The host machine should resolve ${SET_HOST_NAME}$'\n  '\& ${SET_HOST_FQDN} to vagrant IP ${VAGRANT_IP}
+
+if [ ${SETUP_WEBMIN} = 1 ]; then
+
+	echo $'\n'\* Webmin URL: https://${VAGRANT_IP}:10000
+	echo $'  Username: vagrant\n  Password: vagrant'
+fi
+
+[[ ${SET_HOST_NAME} != ubuntu-xenial ]] && echo $'\n'\* New hostname will take effect upon restart \(vagrant reload\)
 
 cat /dev/null > ~/.bash_history && history -c

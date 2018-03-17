@@ -18,7 +18,8 @@ Available configurations (provisioning variables):
 
 **SET_LOCALE**=en_US.UTF-8  
 **SET_TIMEZONE**=Asia/Kuala_Lumpur  
-**SET_HOST_NAME**=ubuntu-xenial
+**SET_HOST_NAME**=ubuntu-xenial  
+**SET_HOST_FQDN**=ubuntu-xenial.vagrant.host
 
 **SET_WWW_USER**=vagrant  
 **SET_WWW_GROUP**=vagrant  
@@ -44,7 +45,7 @@ Available configurations (provisioning variables):
 **SET_CERT_STATE**=Selangor  
 **SET_CERT_CITY**=Cyberjaya  
 **SET_CERT_ORGANIZATION**=Vagrant  
-**SET_CERT_COMMON_NAME**=vagrant.host
+**SET_CERT_COMMON_NAME**=(SET_HOST_FQDN)
 
 **SETUP_NODE8**=0  
 *Flag 1 = Installs Node 8*
@@ -124,6 +125,9 @@ Available configurations (provisioning variables):
 
 **SETUP_PACKAGES_NPM**=0  
 *Flag 1 = Installs NPM packages (with package.json, without node_modules folder)*
+
+**SETUP_WEBMIN**=1  
+*Flag 1 = Installs Webmin Control Panel (includes Perl & Python dependencies)*
 
 **SETUP_BASH**=1  
 *Flag 1 = Adds command shortcuts & cd /vagrant on ssh login*

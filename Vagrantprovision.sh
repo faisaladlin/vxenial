@@ -249,8 +249,9 @@ if [ ${SETUP_MONGODB} = 1 ] || [ ${SETUP_REDIS} = 1 ] || [ ${SETUP_PHP7FPM} = 1 
 		add-apt-repository 'deb https://download.webmin.com/download/repository sarge contrib'
 
 		# fetch & add webmin GPG key
-		wget http://www.webmin.com/jcameron-key.asc
-		apt-key add jcameron-key.asc
+		mkdir /home/vagrant/gpgkeys
+		wget http://www.webmin.com/jcameron-key.asc -P /home/vagrant/gpgkeys
+		apt-key add /home/vagrant/gpgkeys/jcameron-key.asc
 	fi
 
 	apt-get update -y

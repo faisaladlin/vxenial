@@ -276,7 +276,7 @@ if [ ${SETUP_BUILD} = 1 ] && [ ${SETUP_NODE8} = 1 ]; then
 	echo $'\n------------------------------------------------------------------'
 	echo Setup build-essential packages
 
-	apt-get install -y build-essential
+	apt-get install -y build-essential autoconf libtool pkg-config nasm
 fi
 
 if [ ${SETUP_PM2} = 1 ]; then

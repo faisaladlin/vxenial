@@ -411,6 +411,7 @@ if [ ${SETUP_NGINX} = 1 ]; then
 
 	sed -i -e 's|user www-data|user '${SET_WWW_USER}'|g' /etc/nginx/nginx.conf
 	sed -i -e 's|root /var/www/html|root '${SET_WWW_ROOT}'|g' /etc/nginx/sites-available/default
+	sed -i -e 's|server_name _;|server_name '${SET_HOST_FQDN}';|g' /etc/nginx/sites-available/default
 
 	if [ ${SETUP_HTTPS} = 1 ]; then
 

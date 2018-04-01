@@ -72,7 +72,12 @@ Available configurations (provisioning variables):
 *Flag 1 = Installs Redis key-value store*
 
 **SETUP_BEANSTALKD**=0  
-*Flag 1 = Installs Beanstalkd queue service*
+*Flag 1 = Installs Beanstalkd queue service*  
+*May use QUEUE_DRIVER=beanstalkd in Laravel/Lumen .env config*
+
+**SETUP_SUPERVISOR**=0  
+*Flag 1 = Installs Supervisor process control*  
+*Loops queue process in background if Laravel/Lumen installed*
 
 **SETUP_APACHE**=0  
 *Flag 1 = Installs Apache 2.4 httpd web server*

@@ -43,6 +43,7 @@ SETUP_MARIADB=0
 SETUP_MONGODB=0
 SETUP_REDIS=0
 SETUP_BEANSTALKD=0
+SETUP_SUPERVISOR=0
 
 SETUP_APACHE=0
 SETUP_NGINX=0
@@ -286,6 +287,14 @@ if [ ${SETUP_PM2} = 1 ]; then
 
 	npm install -g pm2
 	pm2 startup
+fi
+
+if [ ${SETUP_SUPERVISOR} = 1 ]; then
+
+	echo $'\n------------------------------------------------------------------'
+	echo Setup Supervisor process control
+
+	apt-get install -y supervisor
 fi
 
 if [ ${SETUP_MYSQL} = 1 ]; then
@@ -710,6 +719,20 @@ if [ ${SETUP_PHP7FPM} = 1 ] || [ ${SETUP_PHP5FPM} = 1 ]; then
 	fi
 fi
 
+if [ ${SETUP_SUPERVISOR} = 1 ]; then
+
+	if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
+
+		echo $'\n------------------------------------------------------------------'
+		echo Setup Laravel \/ Lumen queue worker as Supervisor background process
+
+		QUEUE_COMMAND="php /vagrant/artisan queue:work --sleep=5 --tries=3 --daemon"
+
+		# configure supervisor queue process
+		echo $'[program:queue]\nprocess_name=%(program_name)s_%(process_num)02d\ncommand='${QUEUE_COMMAND}$'\nautostart=true\nautorestart=true\nuser='${SET_WWW_USER}$'\nnumprocs=8\nredirect_stderr=true\nstdout_logfile=/vagrant/storage/logs/queue.log' | tee -a /etc/supervisor/conf.d/queue.conf > /dev/null
+	fi
+fi
+
 if [ ${SETUP_NODE8} = 1 ] && [ ${SETUP_PACKAGES_NPM} = 1 ]; then
 
 	# if package.json file exists
@@ -799,6 +822,16 @@ if [ ${SETUP_BASH} = 1 ]; then
 		echo $'\n# artisan command alias\nalias artisan="sudo php artisan"' | tee -a /home/vagrant/.profile > /dev/null
 	fi
 
+	if [ ${SETUP_SUPERVISOR} = 1 ]; then
+
+		if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
+
+			echo Adds queue worker process toggler \(qon / qoff\)
+			echo $'\n# supervisor queue disabler alias\nalias qoff="sudo supervisorctl stop queue:*"' | tee -a /home/vagrant/.profile > /dev/null
+			echo $'\n# supervisor queue enabler alias\nalias qon="sudo supervisorctl start queue:*"' | tee -a /home/vagrant/.profile > /dev/null
+		fi
+	fi
+
 	echo Change into /vagrant directory upon login
 	echo $'\n# change into /vagrant directory upon login\ncd /vagrant' | tee -a /home/vagrant/.profile > /dev/null
 fi
@@ -818,6 +851,19 @@ echo Restarting Servers
 
 [[ ${SETUP_PHP7FPM} = 1 ]] && service php7.1-fpm restart
 [[ ${SETUP_PHP5FPM} = 1 ]] && service php5.6-fpm restart
+
+if [ ${SETUP_SUPERVISOR} = 1 ]; then
+
+	# reread, update supervisor configs
+	supervisorctl reread
+	supervisorctl update
+
+	if [ ${SETUP_LARAVEL} = 1 ] || [ ${SETUP_LUMEN} = 1 ]; then
+
+		# start supervisor queue process
+		supervisorctl start queue:*
+	fi
+fi
 
 echo $'\n------------------------------------------------------------------'
 echo PROVISIONING DONE

@@ -11,6 +11,8 @@ SET_WWW_USER=vagrant
 SET_WWW_GROUP=vagrant
 SET_WWW_ROOT=/vagrant/public
 
+SET_SENDFILE=off
+
 SET_DB_HOST=127.0.0.1
 SET_DB_NAME=vagrant
 SET_DB_PASSWORD=vagrant
@@ -407,6 +409,13 @@ if [ ${SETUP_APACHE} = 1 ]; then
 		sed -i '/^\t\tSSLCertificateKeyFile/c\\t\tSSLCertificateKeyFile /home/vagrant/certificate/vagrant.key.pem' /etc/apache2/sites-enabled/default-ssl.conf
 	fi
 
+	# disable sendfile invocation from apache (if SET_SENDFILE = off)
+	if ! grep -q 'EnableSendfile' /etc/apache2/apache2.conf; then
+		echo $'\nEnableSendfile '${SET_SENDFILE} | tee -a /etc/apache2/apache2.conf > /dev/null
+	else
+		sed -i -e 's/EnableSendfile On/EnableSendfile '${SET_SENDFILE}'/g' /etc/apache2/apache2.conf
+	fi
+
 	echo $'\n# Block access to dot-prefixed directories (i.e. .vagrant / .git)\n<DirectoryMatch ".*\/\..+">\nRequire all denied\n</DirectoryMatch>' | tee -a /etc/apache2/apache2.conf > /dev/null
 	echo $'\n# Block access to dot-prefixed & vagrant configuration files\n<FilesMatch "(^\..+|Vagrantfile|Vagrantprovision\.sh)">\nRequire all denied\n</FilesMatch>\n' | tee -a /etc/apache2/apache2.conf > /dev/null
 fi
@@ -421,6 +430,9 @@ if [ ${SETUP_NGINX} = 1 ]; then
 	sed -i -e 's|user www-data|user '${SET_WWW_USER}'|g' /etc/nginx/nginx.conf
 	sed -i -e 's|root /var/www/html|root '${SET_WWW_ROOT}'|g' /etc/nginx/sites-available/default
 	sed -i -e 's|server_name _;|server_name '${SET_HOST_FQDN}';|g' /etc/nginx/sites-available/default
+
+	# disable sendfile invocation from nginx (if SET_SENDFILE = off)
+	sed -i -e 's|sendfile on;|sendfile '${SET_SENDFILE}';|g' /etc/nginx/nginx.conf
 
 	if [ ${SETUP_HTTPS} = 1 ]; then
 

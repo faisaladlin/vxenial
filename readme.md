@@ -25,6 +25,8 @@ Available configurations (provisioning variables):
 **SET_WWW_GROUP**=vagrant  
 **SET_WWW_ROOT**=/vagrant/public
 
+**SET_SENDFILE**=off
+
 **SET_DB_HOST**=127.0.0.1  
 **SET_DB_NAME**=vagrant  
 **SET_DB_PASSWORD**=vagrant  
